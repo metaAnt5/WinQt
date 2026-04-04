@@ -10,7 +10,6 @@
 #include <QActionGroup>
 #include <QFileDialog>
 #include <QStackedWidget>
-
 #include "klinewidget.h"
 #include "indicatorwidget.h"
 #include "testdata.h"
@@ -20,6 +19,8 @@
 #include "clickfilter.h"
 
 #include <QStyle>
+#include <QListWidget>
+#include <QTextEdit>
 
 int main(int argc, char *argv[])
 {
@@ -75,9 +76,6 @@ int main(int argc, char *argv[])
         }
     });
 
-    // central widgets
-    QWidget *central = new QWidget;
-    QVBoxLayout *vLayout = new QVBoxLayout(central);
     // ensure main chart and indicator widgets exist
     KLineWidget *k = new KLineWidget;
     IndicatorWidget *ind = new IndicatorWidget;
@@ -91,13 +89,43 @@ int main(int argc, char *argv[])
     stack->addWidget(kjw);
     stack->addWidget(macdw);
 
-    // use a vertical splitter so user can resize between main chart and indicators
-    QSplitter *split = new QSplitter(Qt::Vertical, &mainWindow);
-    split->addWidget(k);
-    split->addWidget(stack);
+    // top splitter for main chart and indicators (right-top)
+    QSplitter *topSplit = new QSplitter(Qt::Vertical, &mainWindow);
+    topSplit->addWidget(k);
+    topSplit->addWidget(stack);
+    topSplit->setStretchFactor(0, 5);
+    topSplit->setStretchFactor(1, 2);
+
+    // text area at bottom-right
+    QTextEdit *text = new QTextEdit;
+    text->setPlainText("Log / Info");
+
+    // right vertical splitter containing top chart area and text
+    QSplitter *rightSplit = new QSplitter(Qt::Vertical, &mainWindow);
+    rightSplit->addWidget(topSplit);
+    rightSplit->addWidget(text);
+    rightSplit->setStretchFactor(0, 5);
+    rightSplit->setStretchFactor(1, 1);
+
+    // list on the left
+    QListWidget *list = new QListWidget;
+    list->addItem("Item 1");
+    list->addItem("Item 2");
+
+    // main horizontal splitter: left list, right area
+    QSplitter *split = new QSplitter(Qt::Horizontal, &mainWindow);
+    split->addWidget(list);
+    split->addWidget(rightSplit);
     mainWindow.setCentralWidget(split);
-    split->setStretchFactor(0, 5);
-    split->setStretchFactor(1, 2);
+    split->setStretchFactor(0, 1);
+    split->setStretchFactor(1, 3);
+    // ensure visible initial sizes so layout change is obvious
+    list->setMinimumWidth(180);
+    text->setMinimumHeight(100);
+    // set reasonable initial splitter sizes: left, rightTOP, rightBOTTOM
+    split->setSizes({200, 800});
+    rightSplit->setSizes({600, 200});
+    topSplit->setSizes({500, 200});
 
     // install click filter to allow double-click on the indicator area to cycle indicators
     ClickFilter *cf = new ClickFilter(stack, &mainWindow);
