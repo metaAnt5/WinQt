@@ -1,8 +1,0 @@
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/WinLine.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/edit_cache.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/rebuild_cache.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/list_install_components.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/install.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/install/local.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/WinLine_autogen_timestamp_deps.dir
-G:/qt/WinLine/build/unknown-Release/CMakeFiles/WinLine_autogen.dir
