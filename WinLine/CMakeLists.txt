@@ -39,6 +39,10 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         fhdataprovider.cpp fhdataprovider.h
         fhdataprovider.cpp fhdataprovider.h
         cryptodataprovider.cpp cryptodataprovider.h
+        dataprovider.cpp dataprovider.h
+        dataloader.cpp dataloader.h
+        dataprovider.cpp dataprovider.h
+        logger.cpp logger.h
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET WinLine APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR

@@ -3,7 +3,7 @@
 #include "fhdataprovider.h"
 #include "cryptodataprovider.h"
 
-DataProvider* ProviderFactory::createProvider(const QString &apiType, const QString &dataDir, const QString &marketName, const QString &filenamePattern, const QString &readerType, QObject *parent)
+DataProvider* ProviderFactory::createProvider(const QString &apiType, const QString &dataDir, const QString &filenamePattern, const QString &readerType, QObject *parent)
 {
     // If a specific readerType is provided, prefer it for creating specialized providers
     if (!readerType.isEmpty()) {
@@ -16,13 +16,9 @@ DataProvider* ProviderFactory::createProvider(const QString &apiType, const QStr
         // future readerType handlers can go here
     }
 
-    // No explicit readerType -> use apiType and marketName rules
+    // No explicit readerType -> use apiType rules
     if (apiType.compare(QLatin1String("file"), Qt::CaseInsensitive) == 0) {
-        // Market-specific file readers
-        if (marketName == QLatin1String("福汇")) {
-            return new FhDataProvider(dataDir, parent);
-        }
-        // choose filename pattern: priority: filenamePattern arg, marketName rule, default
+        // choose filename pattern: priority: filenamePattern arg, default
         QString pattern = filenamePattern;
         if (pattern.isEmpty()) {
             pattern = QStringLiteral("%{symbol}_%{tf}.csv");
@@ -31,10 +27,6 @@ DataProvider* ProviderFactory::createProvider(const QString &apiType, const QStr
     }
 
     if (apiType.compare(QLatin1String("remote"), Qt::CaseInsensitive) == 0) {
-        // Market-specific remote readers
-        if (marketName == QLatin1String("加密市场")) {
-            return new CryptoDataProvider(dataDir, filenamePattern, parent);
-        }
         // fallback remote provider
         if (!filenamePattern.isEmpty()) return new RemoteDataProvider(dataDir, filenamePattern, parent);
         return new RemoteDataProvider(dataDir, parent);

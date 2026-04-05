@@ -28,7 +28,10 @@
 #include <QXmlStreamReader>
 #include <QDir>
 #include <QTextEdit>
-#include <QTabWidget>
+#include "apppaths.h"
+#include <QtConcurrent/QtConcurrentRun>
+#include <QFutureWatcher>
+#include "dataloader.h"
 
 int main(int argc, char *argv[])
 {
@@ -39,7 +42,8 @@ int main(int argc, char *argv[])
     AppPaths::setDataRoot(QDir::currentPath());
 #endif
 
-    QMainWindow mainWindow;
+    // create main window UI
+    MainWindow mainWindow;
 
     // toolbar (use QMainWindow's toolbar)
     QToolBar *toolbar = new QToolBar(&mainWindow);
@@ -185,54 +189,59 @@ int main(int argc, char *argv[])
         mainWindow.setWindowTitle(title);
     };
 
-    // connect timeframe actions to update currentTf and keep button checked
-    QObject::connect(a1, &QAction::triggered, [&currentTf,&currentSymbol,a1, &mainWindow, &updateTitle](){ currentTf = 1; a1->setChecked(true); updateTitle(); });
-    QObject::connect(a5, &QAction::triggered, [&currentTf,&currentSymbol,a5, &mainWindow, &updateTitle](){ currentTf = 5; a5->setChecked(true); updateTitle(); });
-    QObject::connect(a15, &QAction::triggered, [&currentTf,&currentSymbol,a15, &mainWindow, &updateTitle](){ currentTf = 15; a15->setChecked(true); updateTitle(); });
-    QObject::connect(a30, &QAction::triggered, [&currentTf,&currentSymbol,a30, &mainWindow, &updateTitle](){ currentTf = 30; a30->setChecked(true); updateTitle(); });
-    QObject::connect(a60, &QAction::triggered, [&currentTf,&currentSymbol,a60, &mainWindow, &updateTitle](){ currentTf = 60; a60->setChecked(true); updateTitle(); });
-    QObject::connect(ah4, &QAction::triggered, [&currentTf,&currentSymbol,ah4, &mainWindow, &updateTitle](){ currentTf = 240; ah4->setChecked(true); updateTitle(); });
-    QObject::connect(ad, &QAction::triggered, [&currentTf,&currentSymbol,ad, &mainWindow, &updateTitle](){ currentTf = 1440; ad->setChecked(true); updateTitle(); });
-    QObject::connect(aw1, &QAction::triggered, [&currentTf,&currentSymbol,aw1, &mainWindow, &updateTitle](){ currentTf = 10080; aw1->setChecked(true); updateTitle(); });
-    QObject::connect(amn, &QAction::triggered, [&currentTf,&currentSymbol,amn, &mainWindow, &updateTitle](){ currentTf = 43200; amn->setChecked(true); updateTitle(); });
+    // connect timeframe actions to update currentTf and keep button checked; perform async loadRecent if a symbol is selected
+    auto makeTfHandler = [&](QAction *act, int tf){
+        return QObject::connect(act, &QAction::triggered, [&mainWindow, &logText, &currentTf, &currentSymbol, act, tf, &updateTitle](){
+            currentTf = tf; act->setChecked(true); updateTitle();
+            if (currentSymbol.isEmpty()) {
+                QMessageBox::information(&mainWindow, QStringLiteral("未选择品种"), QStringLiteral("请先在左侧选择一个品种，然后再切换周期。"));
+                return;
+            }
+            QTreeWidget *tree = mainWindow.findChild<QTreeWidget*>();
+            if (!tree) return;
+            QList<QTreeWidgetItem*> matches = tree->findItems(currentSymbol, Qt::MatchRecursive | Qt::MatchExactly, 0);
+            if (matches.isEmpty()) return;
+            QTreeWidgetItem *symItem = matches.first();
+            DataLoader *loader = mainWindow.findChild<DataLoader*>();
+            if (!loader) {
+                QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
+                return;
+            }
+            loader->requestInitialLoad(currentSymbol, currentTf, symItem);
+        });
+    };
+    makeTfHandler(a1, 1);
+    makeTfHandler(a5, 5);
+    makeTfHandler(a15, 15);
+    makeTfHandler(a30, 30);
+    makeTfHandler(a60, 60);
+    makeTfHandler(ah4, 240);
+    makeTfHandler(ad, 1440);
+    makeTfHandler(aw1, 10080);
+    makeTfHandler(amn, 43200);
 
     // ensure initial checked action for default timeframe
     a1->setChecked(true);
 
+    // find KLineWidget and create DataLoader
+    KLineWidget *klineWidget = mainWindow.findChild<KLineWidget*>();
+    DataLoader *loader = nullptr;
+    if (klineWidget) loader = new DataLoader(klineWidget, &mainWindow);
+
     // double-click symbol loads data for currentTf and marks tree selection
     QObject::connect(tree, &QTreeWidget::itemDoubleClicked, [&mainWindow, &logText, &currentTf, &currentSymbol, &updateTitle](QTreeWidgetItem *item, int){
         if (!item) return;
-        // only leaf symbols (no children)
         if (item->childCount() > 0) return;
         QString symbol = item->text(0);
         currentSymbol = symbol;
         updateTitle();
-        // ensure tree selection shows item
         item->setSelected(true);
-
-        QString dataDir = item->data(0, Qt::UserRole + 1).toString();
-        QString apiType = item->data(0, Qt::UserRole + 2).toString();
-        QString csvPath = item->data(0, Qt::UserRole + 3).toString();
-        QString marketName = item->data(0, Qt::UserRole + 5).toString();
-        QString filenamePattern = item->data(0, Qt::UserRole + 6).toString();
-        QString readerType = item->data(0, Qt::UserRole + 7).toString();
-
-        DataProvider *prov = ProviderFactory::createProvider(apiType.isEmpty() ? QStringLiteral("file") : apiType,
-                                                            dataDir.isEmpty() ? QDir(qApp->applicationDirPath()).filePath("data") : dataDir,
-                                                            marketName,
-                                                            filenamePattern,
-                                                            readerType,
-                                                            &mainWindow);
-        QVector<Candle> out;
-        bool ok = prov->loadLocalData(symbol, currentTf, out, csvPath);
-        if (ok) {
-            KLineWidget *k = mainWindow.findChild<KLineWidget*>();
-            if (k) k->setData(out, currentTf);
-            logText->append(QStringLiteral("Loaded local data for %1 %2min, %3 rows").arg(symbol).arg(currentTf).arg(out.size()));
-        } else {
-            logText->append(QStringLiteral("No local data for %1 %2min (api=%3, dir=%4)").arg(symbol).arg(currentTf).arg(apiType).arg(dataDir));
+        DataLoader *loader = mainWindow.findChild<DataLoader*>();
+        if (!loader) {
+            QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
+            return;
         }
-        prov->deleteLater();
+        loader->requestInitialLoad(symbol, currentTf, item);
     });
 
     // main horizontal splitter: left list, right area
@@ -293,6 +302,7 @@ int main(int argc, char *argv[])
     QObject::connect(aClear, &QAction::triggered, [k](){ k->clearShapes(); });
     QObject::connect(aNormal, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_None); });
     mainWindow.resize(1000, 700);
+
     mainWindow.show();
     return a.exec();
 }
