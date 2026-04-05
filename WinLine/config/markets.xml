@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Markets>
+    <Market name="福汇" dataDir="data/fh" apiType="file" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
+        <Symbol csvPath="XAUUSD.csv">XAUUSD</Symbol>
+        <Symbol csvPath="HSD.csv">HSD</Symbol>
+        <Symbol csvPath="USOIL.csv">USOil</Symbol>
+    </Market>
+    <Market name="Global FX" dataDir="data/globalfx" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
+        <Symbol csvPath="EURUSD.csv">EURUSD</Symbol>
+        <Symbol csvPath="GBPUSD.csv">GBPUSD</Symbol>
+        <Symbol csvPath="USDJPY.csv">USDJPY</Symbol>
+        <Symbol csvPath="AUDUSD.csv">AUDUSD</Symbol>
+    </Market>
+    <Market name="加密市场" dataDir="data/crypto" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
+        <Symbol>BTCUSD</Symbol>
+        <Symbol>ETHUSD</Symbol>
+        <Symbol>LTCUSD</Symbol>
+    </Market>
+    <Market name="市场A" dataDir="data/marketA" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
+        <Symbol csvPath="AAA.csv">AAA</Symbol>
+        <Symbol csvPath="BBB.csv">BBB</Symbol>
+        <Symbol csvPath="CCC.csv">CCC</Symbol>
+    </Market>
+    <Market name="期货" dataDir="data/futures" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
+        <Symbol csvPath="ZN.csv">ZN</Symbol>
+        <Symbol csvPath="GC.csv">GC</Symbol>
+        <Symbol csvPath="CL.csv">CL</Symbol>
+    </Market>
+</Markets>

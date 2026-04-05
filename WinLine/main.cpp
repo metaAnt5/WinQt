@@ -17,16 +17,26 @@
 #include "volumewidget.h"
 #include "macdwidget.h"
 #include "clickfilter.h"
+#include "marketsconfig.h"
+#include "providerfactory.h"
+#include "dataprovider.h"
+#include "apppaths.h"
 
 #include <QStyle>
-#include <QListWidget>
+#include <QTreeWidget>
+#include <QFile>
+#include <QXmlStreamReader>
+#include <QDir>
 #include <QTextEdit>
+#include <QTabWidget>
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
 #ifdef QT_DEBUG
     QMessageBox::information(nullptr, "调试提示", "当前为 Debug 构建，工程可以编译并进行调试。");
+    // In debug builds, prefer the current working directory (project code dir) as the data root
+    AppPaths::setDataRoot(QDir::currentPath());
 #endif
 
     QMainWindow mainWindow;
@@ -73,6 +83,43 @@ int main(int argc, char *argv[])
                     if (act->isCheckable()) act->setChecked(shouldCheck);
                 }
             }
+            // try to integrate the loaded CSV into configured market structure
+            QTreeWidget *tree = mainWindow.findChild<QTreeWidget*>();
+            QTextEdit *logText = mainWindow.findChild<QTextEdit*>();
+            if (tree) {
+                // search for a symbol item matching the loaded symbol
+                QList<QTreeWidgetItem*> matches = tree->findItems(symbol, Qt::MatchRecursive | Qt::MatchExactly, 0);
+                if (!matches.isEmpty()) {
+                    QTreeWidgetItem *symItem = matches.first();
+                    QString dataDir = symItem->data(0, Qt::UserRole + 1).toString();
+                    QString filenamePattern = symItem->data(0, Qt::UserRole + 6).toString();
+                    QString readerType = symItem->data(0, Qt::UserRole + 7).toString();
+                    QString targetDir = AppPaths::resolveDataDir(dataDir);
+                    QString destName;
+                    if (!filenamePattern.isEmpty()) {
+                        destName = filenamePattern;
+                        destName.replace("%{symbol}", symbol);
+                        destName.replace("%{tf}", QString::number(baseMin));
+                    } else {
+                        destName = QString("%1_%2.csv").arg(symbol).arg(baseMin);
+                    }
+                    QString destPath = QDir(targetDir).filePath(destName);
+                    if (QFile::exists(destPath)) {
+                        if (logText) logText->append(QStringLiteral("Target file already exists: %1").arg(destPath));
+                    } else {
+                        // ensure directory exists
+                        QDir d(targetDir);
+                        if (!d.exists()) d.mkpath(targetDir);
+                        if (QFile::copy(file, destPath)) {
+                            if (logText) logText->append(QStringLiteral("Copied %1 to %2").arg(file).arg(destPath));
+                        } else {
+                            if (logText) logText->append(QStringLiteral("Failed to copy %1 to %2").arg(file).arg(destPath));
+                        }
+                    }
+                } else {
+                    if (logText) logText->append(QStringLiteral("Loaded symbol %1 not found in markets config; file loaded ad-hoc: %2").arg(symbol).arg(file));
+                }
+            }
         }
     });
 
@@ -96,32 +143,108 @@ int main(int argc, char *argv[])
     topSplit->setStretchFactor(0, 5);
     topSplit->setStretchFactor(1, 2);
 
-    // text area at bottom-right
-    QTextEdit *text = new QTextEdit;
-    text->setPlainText("Log / Info");
+    // log area at bottom-right as a tab widget
+    QTabWidget *tabs = new QTabWidget;
+    QTextEdit *logText = new QTextEdit;
+    logText->setReadOnly(true);
+    logText->setPlainText("Log / Info\n");
+    tabs->addTab(logText, "Log");
 
     // right vertical splitter containing top chart area and text
     QSplitter *rightSplit = new QSplitter(Qt::Vertical, &mainWindow);
     rightSplit->addWidget(topSplit);
-    rightSplit->addWidget(text);
+    rightSplit->addWidget(tabs);
     rightSplit->setStretchFactor(0, 5);
     rightSplit->setStretchFactor(1, 1);
 
     // list on the left
-    QListWidget *list = new QListWidget;
-    list->addItem("Item 1");
-    list->addItem("Item 2");
+    QTreeWidget *tree = new QTreeWidget;
+    tree->setHeaderHidden(true);
+    MarketsConfig cfg;
+    // resolve config directory using AppPaths so debug/run paths are unified
+    QString configDir = AppPaths::resolveDataDir("config");
+    QString cfgPath = QDir(configDir).filePath("markets.xml");
+    bool loaded = cfg.loadFromFile(cfgPath);
+    if (!loaded) {
+        // failed to load configuration -> show error and quit
+        QMessageBox::critical(&mainWindow, QStringLiteral("配置加载失败"),
+                              QStringLiteral("未能在 %1 找到或解析 markets.xml 。程序将退出。").arg(cfgPath));
+        return 0;
+    }
+    cfg.populateTree(tree);
+
+    // global current timeframe; default 1 minute
+    int currentTf = 1;
+    QString currentSymbol;
+
+    // helper to update window title
+    auto updateTitle = [&mainWindow,&currentSymbol,&currentTf]() {
+        QString title = QString("WinLine");
+        if (!currentSymbol.isEmpty()) title += QString(" - %1").arg(currentSymbol);
+        title += QString(" [%1m]").arg(currentTf);
+        mainWindow.setWindowTitle(title);
+    };
+
+    // connect timeframe actions to update currentTf and keep button checked
+    QObject::connect(a1, &QAction::triggered, [&currentTf,&currentSymbol,a1, &mainWindow, &updateTitle](){ currentTf = 1; a1->setChecked(true); updateTitle(); });
+    QObject::connect(a5, &QAction::triggered, [&currentTf,&currentSymbol,a5, &mainWindow, &updateTitle](){ currentTf = 5; a5->setChecked(true); updateTitle(); });
+    QObject::connect(a15, &QAction::triggered, [&currentTf,&currentSymbol,a15, &mainWindow, &updateTitle](){ currentTf = 15; a15->setChecked(true); updateTitle(); });
+    QObject::connect(a30, &QAction::triggered, [&currentTf,&currentSymbol,a30, &mainWindow, &updateTitle](){ currentTf = 30; a30->setChecked(true); updateTitle(); });
+    QObject::connect(a60, &QAction::triggered, [&currentTf,&currentSymbol,a60, &mainWindow, &updateTitle](){ currentTf = 60; a60->setChecked(true); updateTitle(); });
+    QObject::connect(ah4, &QAction::triggered, [&currentTf,&currentSymbol,ah4, &mainWindow, &updateTitle](){ currentTf = 240; ah4->setChecked(true); updateTitle(); });
+    QObject::connect(ad, &QAction::triggered, [&currentTf,&currentSymbol,ad, &mainWindow, &updateTitle](){ currentTf = 1440; ad->setChecked(true); updateTitle(); });
+    QObject::connect(aw1, &QAction::triggered, [&currentTf,&currentSymbol,aw1, &mainWindow, &updateTitle](){ currentTf = 10080; aw1->setChecked(true); updateTitle(); });
+    QObject::connect(amn, &QAction::triggered, [&currentTf,&currentSymbol,amn, &mainWindow, &updateTitle](){ currentTf = 43200; amn->setChecked(true); updateTitle(); });
+
+    // ensure initial checked action for default timeframe
+    a1->setChecked(true);
+
+    // double-click symbol loads data for currentTf and marks tree selection
+    QObject::connect(tree, &QTreeWidget::itemDoubleClicked, [&mainWindow, &logText, &currentTf, &currentSymbol, &updateTitle](QTreeWidgetItem *item, int){
+        if (!item) return;
+        // only leaf symbols (no children)
+        if (item->childCount() > 0) return;
+        QString symbol = item->text(0);
+        currentSymbol = symbol;
+        updateTitle();
+        // ensure tree selection shows item
+        item->setSelected(true);
+
+        QString dataDir = item->data(0, Qt::UserRole + 1).toString();
+        QString apiType = item->data(0, Qt::UserRole + 2).toString();
+        QString csvPath = item->data(0, Qt::UserRole + 3).toString();
+        QString marketName = item->data(0, Qt::UserRole + 5).toString();
+        QString filenamePattern = item->data(0, Qt::UserRole + 6).toString();
+        QString readerType = item->data(0, Qt::UserRole + 7).toString();
+
+        DataProvider *prov = ProviderFactory::createProvider(apiType.isEmpty() ? QStringLiteral("file") : apiType,
+                                                            dataDir.isEmpty() ? QDir(qApp->applicationDirPath()).filePath("data") : dataDir,
+                                                            marketName,
+                                                            filenamePattern,
+                                                            readerType,
+                                                            &mainWindow);
+        QVector<Candle> out;
+        bool ok = prov->loadLocalData(symbol, currentTf, out, csvPath);
+        if (ok) {
+            KLineWidget *k = mainWindow.findChild<KLineWidget*>();
+            if (k) k->setData(out, currentTf);
+            logText->append(QStringLiteral("Loaded local data for %1 %2min, %3 rows").arg(symbol).arg(currentTf).arg(out.size()));
+        } else {
+            logText->append(QStringLiteral("No local data for %1 %2min (api=%3, dir=%4)").arg(symbol).arg(currentTf).arg(apiType).arg(dataDir));
+        }
+        prov->deleteLater();
+    });
 
     // main horizontal splitter: left list, right area
     QSplitter *split = new QSplitter(Qt::Horizontal, &mainWindow);
-    split->addWidget(list);
+    split->addWidget(tree);
     split->addWidget(rightSplit);
     mainWindow.setCentralWidget(split);
     split->setStretchFactor(0, 1);
     split->setStretchFactor(1, 3);
     // ensure visible initial sizes so layout change is obvious
-    list->setMinimumWidth(180);
-    text->setMinimumHeight(100);
+    tree->setMinimumWidth(180);
+    tabs->setMinimumHeight(100);
     // set reasonable initial splitter sizes: left, rightTOP, rightBOTTOM
     split->setSizes({200, 800});
     rightSplit->setSizes({600, 200});
@@ -130,19 +253,6 @@ int main(int argc, char *argv[])
     // install click filter to allow double-click on the indicator area to cycle indicators
     ClickFilter *cf = new ClickFilter(stack, &mainWindow);
     stack->installEventFilter(cf);
-
-    QObject::connect(a1, &QAction::triggered, [k,a1](){ k->setTimeframe(KLineWidget::TF_1m); a1->setChecked(true); });
-    QObject::connect(a5, &QAction::triggered, [k,a5](){ k->setTimeframe(KLineWidget::TF_5m); a5->setChecked(true); });
-    QObject::connect(a15, &QAction::triggered, [k,a15](){ k->setTimeframe(KLineWidget::TF_15m); a15->setChecked(true); });
-    QObject::connect(a30, &QAction::triggered, [k,a30](){ k->setTimeframe(KLineWidget::TF_30m); a30->setChecked(true); });
-    QObject::connect(a60, &QAction::triggered, [k,a60](){ k->setTimeframe(KLineWidget::TF_60m); a60->setChecked(true); });
-    QObject::connect(ah4, &QAction::triggered, [k,ah4](){ k->setTimeframe(KLineWidget::TF_H4); ah4->setChecked(true); });
-    QObject::connect(ad, &QAction::triggered, [k,ad](){ k->setTimeframe(KLineWidget::TF_DAILY); ad->setChecked(true); });
-    QObject::connect(aw1, &QAction::triggered, [k,aw1](){ k->setTimeframe(KLineWidget::TF_W1); aw1->setChecked(true); });
-    QObject::connect(amn, &QAction::triggered, [k,amn](){ k->setTimeframe(KLineWidget::TF_MN); amn->setChecked(true); });
-
-    // set initial checked action for default timeframe
-    a1->setChecked(true);
 
     // connect aggregated data and viewport to all indicator widgets
     QObject::connect(k, &KLineWidget::dataAggregated, volw, &VolumeWidget::setData);

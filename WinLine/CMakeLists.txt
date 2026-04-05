@@ -32,6 +32,13 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         klinewidget.cpp klinewidget.h
 
         shapedialog.cpp shapedialog.h shapedialog.ui
+        marketsconfig.cpp marketsconfig.h
+        providerfactory.cpp providerfactory.h
+        dataprovider.cpp dataprovider.h providerfactory.cpp providerfactory.h
+        apppaths.cpp apppaths.h
+        fhdataprovider.cpp fhdataprovider.h
+        fhdataprovider.cpp fhdataprovider.h
+        cryptodataprovider.cpp cryptodataprovider.h
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET WinLine APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
