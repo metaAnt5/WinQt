@@ -1,5 +1,6 @@
 #include "klinewidget.h"
 #include "shapedialog.h"
+#include "chartconfig.h"
 #include <QPainter>
 #include <QPaintEvent>
 #include <QMouseEvent>
@@ -107,10 +108,11 @@ void KLineWidget::updateRange()
 
 int KLineWidget::visibleCount() const
 {
-    int w = width() - 50 - m_rightPadding; // leave right padding
-    double totalPer = (m_candleWidth * m_scale) + m_gap;
-    if (totalPer <= 0) return 1;
-    int cnt = qMax(1, int(w / totalPer));
+    // use main chart rect width to compute visible count so indicators align with main chart
+    int w = mainChartRect().width();
+    double tp = (m_candleWidth * m_scale) + m_gap;
+    if (tp <= 0) return 1;
+    int cnt = qMax(1, int(w / tp));
     return cnt;
 }
 
@@ -126,6 +128,11 @@ void KLineWidget::resizeEvent(QResizeEvent *event)
     Q_UNUSED(event)
     ensureStartIndexVisible();
     updateRange();
+
+    // keep crosshair synchronized after resize
+    if (m_crosshairVisible && !m_data.isEmpty()) {
+        snapCrosshairTo(m_crosshairPos);
+    }
 }
 
 void KLineWidget::mousePressEvent(QMouseEvent *event)
@@ -355,45 +362,39 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
                 update();
                 m_lastMousePos = event->pos();
                 emit viewportChanged(m_startIndex, visibleCount());
+                emit layoutChanged(m_startIndex, visibleCount(), totalPer, candleBodyWidth(), mainChartRect());
+                // keep crosshair in sync after viewport change
+                if (m_crosshairVisible) {
+                    snapCrosshairTo(m_crosshairPos);
+                }
             }
         }
     }
     if (m_crosshairVisible) {
-        m_crosshairPos = event->pos();
-        const int marginLeft = 40;
-        const int marginTop = 10;
-        const int marginBottom = 20;
-        QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
-        double priceRange = m_maxPrice - m_minPrice;
-        if (priceRange != 0) {
-            double ratio = double(mainRect.bottom() - m_crosshairPos.y()) / double(mainRect.height());
-            double price = m_minPrice + ratio * priceRange;
-            double totalPer = (m_candleWidth * m_scale) + m_gap;
-            int idx = m_startIndex + int((m_crosshairPos.x() - mainRect.left()) / totalPer + 0.5);
-            idx = qBound(0, idx, m_data.size()-1);
-            emit crosshairPriceChanged(price, idx);
-            emit crosshairIndexChanged(idx);
-        }
+        // snap to x center but use mouse y
+        snapCrosshairTo(event->pos());
         update();
     }
 
     // tooltip logic
     if (!m_data.isEmpty()) {
-        int marginLeft = 40;
+        // use main chart rect left to align with main chart instead of hardcoded 40
+        QRect mr = mainChartRect();
+        int contentLeft = mr.left();
         double totalPer = (m_candleWidth * m_scale) + m_gap;
         if (totalPer > 0) {
-            int relX = event->pos().x() - marginLeft;
+            int relX = event->pos().x() - contentLeft;
             int relIdx = int((double)relX / totalPer + 0.5);
             int idx = m_startIndex + relIdx;
             if (idx >= 0 && idx < m_data.size()) {
                 const Candle &c = m_data.at(idx);
-                double x = marginLeft + relIdx * totalPer;
+                double x = contentLeft + relIdx * totalPer;
                 double bodyW = m_candleWidth * m_scale;
                 double bodyLeft = x + (totalPer - bodyW) / 2.0;
                 double bodyRight = bodyLeft + bodyW;
                 int marginTop = 10;
                 int marginBottom = 20;
-                QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+                QRect mainRect(contentLeft, marginTop, mr.width(), mr.height());
                 auto priceToYLocal = [&](double price){ double ratio = (price - m_minPrice) / (m_maxPrice - m_minPrice); return mainRect.bottom() - ratio * mainRect.height(); };
                 double yOpen = priceToYLocal(c.open);
                 double yClose = priceToYLocal(c.close);
@@ -508,11 +509,21 @@ void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
                 double totalPer = (m_candleWidth * m_scale) + m_gap;
                 int idx = m_startIndex + int((m_crosshairPos.x() - mainRect.left()) / (totalPer > 0 ? totalPer : 1.0) + 0.5);
                 idx = qBound(0, idx, m_data.size()-1);
-                emit crosshairPriceChanged(price, idx);
-                emit crosshairIndexChanged(idx);
+                // snap crosshair X to candle center
+                double xCenter = mainRect.left() + (idx - m_startIndex) * totalPer + totalPer / 2.0;
+                m_crosshairPos.setX(int(xCenter + 0.5));
+                snapCrosshairTo(m_crosshairPos);
             }
+            // ensure repaint so indicator widgets show the vertical line
+            update();
+        } else {
+            // hide crosshair: notify indicators to remove vertical line and reset price/index
+            emit crosshairIndexChanged(-1);
+            emit crosshairPriceChanged(0.0, -1);
+            emit crosshairScreenXChanged(-1);
+            // ensure repaint so indicator widgets remove the vertical line
+            update();
         }
-        update();
     }
 }
 
@@ -542,76 +553,65 @@ void KLineWidget::paintEvent(QPaintEvent *event)
     p.fillRect(rect(), QColor(10, 10, 10));
 
     // margins
-    const int marginLeft = 40;
+    const int marginLeft = 5;
     const int marginTop = 10;
     const int marginBottom = 20;
-    QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+    const int priceAxisWidth = 20;  // wider space for price text (supports ~10 digits)
+    QRect mainRect(marginLeft + priceAxisWidth, marginTop, width() - marginLeft - priceAxisWidth - 10 - m_rightPadding, height() - marginTop - marginBottom);
 
-    // draw price scale (Y-axis) - brighter color with higher density
+    // draw price scale (Y-axis) - light gray color with at least 10 price levels
     {
-        const int marginLeft = 40;
+        const int marginLeft = 10;
+        const int priceAxisWidth = 40;
         const int marginTop = 10;
         const int marginBottom = 20;
-        QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+        QRect priceMainRect(marginLeft + priceAxisWidth, marginTop, width() - marginLeft - priceAxisWidth - 10 - m_rightPadding, height() - marginTop - marginBottom);
         double priceRange = m_maxPrice - m_minPrice;
         if (priceRange > 0) {
-            // higher density: more tick marks
-            double step = priceRange / 20.0;  // 20 divisions for higher density
+            // ensure at least 10 price ticks visible
+            double step = priceRange / 10.0;  // 10 divisions minimum
             if (step <= 0) step = 1.0;
 
             p.setFont(QFont("Arial", 8));
 
             for (double price = m_minPrice; price <= m_maxPrice; price += step) {
                 double ratio = (price - m_minPrice) / priceRange;
-                int y = mainRect.bottom() - ratio * mainRect.height();
+                int y = priceMainRect.bottom() - ratio * priceMainRect.height();
 
-                // draw tick mark - bright cyan color
-                p.setPen(QPen(QColor(0, 200, 255), 2));
-                p.drawLine(mainRect.left() - 5, y, mainRect.left() - 2, y);
+                // draw tick mark - light gray color
+                p.setPen(QPen(QColor(180, 180, 180), 2));
+                p.drawLine(priceMainRect.left() - 5, y, priceMainRect.left() - 2, y);
 
-                // draw price label - bright yellow
-                p.setPen(QPen(QColor(255, 255, 0), 1));
+                // draw price label - light gray (support up to ~10 digit numbers)
+                p.setPen(QPen(QColor(200, 200, 200), 1));
                 QString priceStr = QString::number(price, 'f', 2);
                 QFontMetrics fm(p.font());
                 int textWidth = fm.horizontalAdvance(priceStr);
-                p.drawText(mainRect.left() - textWidth - 8, y - 4, priceStr);
+                // use wider left margin to support 10+ digit prices
+                p.drawText(marginLeft + priceAxisWidth - textWidth - 8, y - 4, priceStr);
             }
         }
     }
 
-    // draw time scale (X-axis) - brighter color with higher density
+    // draw time scale (X-axis) - light cyan color with higher density
     {
-        const int marginLeft = 40;
-        const int marginBottom = 20;
+        // use mainRect computed above for consistent left position
         double totalPer = (m_candleWidth * m_scale) + m_gap;
         if (totalPer > 0 && !m_data.isEmpty()) {
             int visCount = visibleCount();
-
-            // higher density: more tick marks - reduce interval for denser ticks
-            int tickInterval = qMax(1, visCount / 20);  // ~20 major ticks visible instead of 10
-
+            int tickInterval = qMax(1, visCount / 20);
             p.setFont(QFont("Arial", 8));
-
             for (int i = m_startIndex; i < m_startIndex + visCount && i < m_data.size(); ++i) {
                 if ((i - m_startIndex) % tickInterval == 0) {
-                    double x = marginLeft + (i - m_startIndex) * totalPer + totalPer / 2.0;
+                    double x = mainRect.left() + (i - m_startIndex) * totalPer + totalPer / 2.0;
                     int y = height() - marginBottom;
-
-                    // draw tick mark - bright cyan color
-                    p.setPen(QPen(QColor(0, 200, 255), 2));
+                    p.setPen(QPen(QColor(100, 200, 200), 2));
                     p.drawLine(x, y + 2, x, y + 5);
-
-                    // draw time label - bright yellow
-                    p.setPen(QPen(QColor(255, 255, 0), 1));
+                    p.setPen(QPen(QColor(150, 220, 220), 1));
                     QString timeStr;
                     if (i < m_data.size()) {
-                        if (m_timeframe == TF_DAILY) {
-                            // Standard format: YYYY-MM-DD
-                            timeStr = m_data[i].date.toString("yyyy-MM-dd");
-                        } else {
-                            // Standard format: YYYY-MM-DD HH:mm
-                            timeStr = m_data[i].date.toString("yyyy-MM-dd HH:mm");
-                        }
+                        if (m_timeframe == TF_DAILY) timeStr = m_data[i].date.toString("yyyy-MM-dd");
+                        else timeStr = m_data[i].date.toString("yyyy-MM-dd HH:mm");
                     }
                     QFontMetrics fm(p.font());
                     int textWidth = fm.horizontalAdvance(timeStr);
@@ -623,6 +623,10 @@ void KLineWidget::paintEvent(QPaintEvent *event)
     double priceRange = m_maxPrice - m_minPrice;
     if (qFuzzyCompare(priceRange, 0.0)) priceRange = 1.0; // avoid div by zero
     double totalPer = (m_candleWidth * m_scale) + m_gap;
+
+    // publish layout for other indicator widgets
+    ChartConfig::setLayout(mainRect, totalPer, m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
+
     auto priceToY = [&](double price){ double ratio = (price - m_minPrice) / priceRange; return mainRect.bottom() - ratio * mainRect.height(); };
 
     for (int i = m_startIndex; i < m_startIndex + visibleCount() && i < m_data.size(); ++i) {
@@ -707,37 +711,29 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             QPointF e3 = mainRect.bottomRight(); QPointF e4 = mainRect.bottomLeft();
             QPointF ip;
             qreal bestT = -1e12;
-            QPointF bestPt = screenP1;
-            if (intersectLines(screenP1, screenP2, e1, e2, ip)) {
-                // check within edge
-                if (ip.x() >= qMin(e1.x(), e2.x()) - 1e-6 && ip.x() <= qMax(e1.x(), e2.x()) + 1e-6 &&
-                    ip.y() >= qMin(e1.y(), e2.y()) - 1e-6 && ip.y() <= qMax(e1.y(), e2.y()) + 1e-6) {
-                    double t = qFuzzyIsNull(ln.dx()) ? (ip.y()-screenP1.y())/ln.dy() : (ip.x()-screenP1.x())/ln.dx();
-                    if (t > bestT) { bestT = t; bestPt = ip; }
+            QPointF bestPt;
+            bool found = false;
+            auto checkEdge = [&](const QPointF &a, const QPointF &b){
+                if (!intersectLines(screenP1, screenP2, a, b, ip)) return;
+                if (ip.x() < qMin(a.x(), b.x()) - 1e-6 || ip.x() > qMax(a.x(), b.x()) + 1e-6) return;
+                if (ip.y() < qMin(a.y(), b.y()) - 1e-6 || ip.y() > qMax(a.y(), b.y()) + 1e-6) return;
+                double t;
+                if (!qFuzzyIsNull(ln.dx())) t = (ip.x() - screenP1.x()) / ln.dx();
+                else t = (ip.y() - screenP1.y()) / ln.dy();
+                // only accept intersections that lie in the forward direction of the ray
+                if (t > 1e-6 && t > bestT) {
+                    bestT = t;
+                    bestPt = ip;
+                    found = true;
                 }
+            };
+            checkEdge(e1, e2);
+            checkEdge(e2, e3);
+            checkEdge(e3, e4);
+            checkEdge(e4, e1);
+            if (found) {
+                p.drawLine(screenP1, bestPt);
             }
-            if (intersectLines(screenP1, screenP2, e2, e3, ip)) {
-                if (ip.x() >= qMin(e2.x(), e3.x()) - 1e-6 && ip.x() <= qMax(e2.x(), e3.x()) + 1e-6 &&
-                    ip.y() >= qMin(e2.y(), e3.y()) - 1e-6 && ip.y() <= qMax(e2.y(), e3.y()) + 1e-6) {
-                    double t = qFuzzyIsNull(ln.dx()) ? (ip.y()-screenP1.y())/ln.dy() : (ip.x()-screenP1.x())/ln.dx();
-                    if (t > bestT) { bestT = t; bestPt = ip; }
-                }
-            }
-            if (intersectLines(screenP1, screenP2, e3, e4, ip)) {
-                if (ip.x() >= qMin(e3.x(), e4.x()) - 1e-6 && ip.x() <= qMax(e3.x(), e4.x()) + 1e-6 &&
-                    ip.y() >= qMin(e3.y(), e4.y()) - 1e-6 && ip.y() <= qMax(e3.y(), e4.y()) + 1e-6) {
-                    double t = qFuzzyIsNull(ln.dx()) ? (ip.y()-screenP1.y())/ln.dy() : (ip.x()-screenP1.x())/ln.dx();
-                    if (t > bestT) { bestT = t; bestPt = ip; }
-                }
-            }
-            if (intersectLines(screenP1, screenP2, e4, e1, ip)) {
-                if (ip.x() >= qMin(e4.x(), e1.x()) - 1e-6 && ip.x() <= qMax(e4.x(), e1.x()) + 1e-6 &&
-                    ip.y() >= qMin(e4.y(), e1.y()) - 1e-6 && ip.y() <= qMax(e4.y(), e1.y()) + 1e-6) {
-                    double t = qFuzzyIsNull(ln.dx()) ? (ip.y()-screenP1.y())/ln.dy() : (ip.x()-screenP1.x())/ln.dx();
-                    if (t > bestT) { bestT = t; bestPt = ip; }
-                }
-            }
-            p.drawLine(screenP1, bestPt);
         } else if (s.type == Shape_GestureUp) {
             p.drawLine(screenP1, screenP2);
             QPointF h = screenP2 - screenP1; h = QPointF(-h.y(), h.x());
@@ -839,7 +835,13 @@ void KLineWidget::setTimeframe(Timeframe tf)
     calculateMovingAverages();
     emit dataAggregated(m_data);
     emit viewportChanged(m_startIndex, visibleCount());
+    emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
     update();
+
+    // keep crosshair synchronized after timeframe change
+    if (m_crosshairVisible && !m_data.isEmpty()) {
+        snapCrosshairTo(m_crosshairPos);
+    }
 }
 
 void KLineWidget::setToolMode(ToolMode m)
@@ -882,8 +884,9 @@ void KLineWidget::wheelEvent(QWheelEvent *event)
     double totalPerNew = (m_candleWidth * m_scale) + m_gap;
     if (totalPerOld > 0 && totalPerNew > 0 && !m_data.isEmpty()) {
         int mouseX = int(event->position().x());
-        int contentLeft = 40;
-        int contentWidth = qMax(1, width() - contentLeft - m_rightPadding);
+        QRect mr = mainChartRect();
+        int contentLeft = mr.left();
+        int contentWidth = qMax(1, mr.width());
         double relative = (mouseX - contentLeft) / (double)contentWidth;
         relative = qBound(0.0, relative, 1.0);
         int visibleOld = qMax(1, int((contentWidth) / totalPerOld));
@@ -895,7 +898,10 @@ void KLineWidget::wheelEvent(QWheelEvent *event)
         ensureStartIndexVisible();
         updateRange();
         emit viewportChanged(m_startIndex, visibleCount());
+        emit layoutChanged(m_startIndex, visibleCount(), totalPerNew, candleBodyWidth(), mainChartRect());
         update();
+
+        if (m_crosshairVisible) snapCrosshairTo(m_crosshairPos);
     }
 }
 
@@ -947,15 +953,12 @@ void KLineWidget::editShapeProperties(int index)
 // helper: convert screen coord to data coord (candle index & price)
 void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, double &price)
 {
-    const int marginLeft = 40;
-    const int marginTop = 10;
-    const int marginBottom = 20;
-    QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+    QRect mr = mainChartRect();
     double totalPer = (m_candleWidth * m_scale) + m_gap;
 
     // convert screen x to candle index
-    if (totalPer > 0 && mainRect.width() > 0) {
-        double relX = screenPt.x() - mainRect.left();
+    if (totalPer > 0 && mr.width() > 0) {
+        double relX = screenPt.x() - mr.left();
         int relIdx = int(relX / totalPer + 0.5);
         candleIdx = m_startIndex + relIdx;
         candleIdx = qBound(0, candleIdx, m_data.size() - 1);
@@ -966,8 +969,8 @@ void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, dou
     // convert screen y to price
     double priceRange = m_maxPrice - m_minPrice;
     if (qFuzzyCompare(priceRange, 0.0)) priceRange = 1.0;
-    if (mainRect.height() > 0) {
-        double ratio = double(mainRect.bottom() - screenPt.y()) / double(mainRect.height());
+    if (mr.height() > 0) {
+        double ratio = double(mr.bottom() - screenPt.y()) / double(mr.height());
         price = m_minPrice + ratio * priceRange;
     } else {
         price = m_minPrice;
@@ -977,25 +980,21 @@ void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, dou
 // helper: convert data coord (candle index & price) to screen coord
 void KLineWidget::dataCoordToScreen(int candleIdx, double price, QPointF &screenPt)
 {
-    const int marginLeft = 40;
-    const int marginTop = 10;
-    const int marginBottom = 20;
-    QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
-    double totalPer = (m_candleWidth * m_scale) + m_gap;
+    QRect mr = mainChartRect();
+    double tp = totalPer();
     double priceRange = m_maxPrice - m_minPrice;
     if (qFuzzyCompare(priceRange, 0.0)) priceRange = 1.0;
 
-    // convert candle index to screen x
-    double x = mainRect.left() + (candleIdx - m_startIndex) * totalPer;
-
-    // convert price to screen y
+    double xCenter = mr.left() + (candleIdx - m_startIndex) * tp + tp / 2.0;
     double ratio = (price - m_minPrice) / priceRange;
-    double y = mainRect.bottom() - ratio * mainRect.height();
-
-    screenPt = QPointF(x, y);
+    double y = mr.bottom() - ratio * mr.height();
+    screenPt = QPointF(xCenter, y);
 }
 
-// helper: distance from point to infinite line
+double KLineWidget::candleBodyWidth() const {
+    return (m_candleWidth * m_scale);
+}
+
 double KLineWidget::pointToLineDist(const QPointF &p, const QPointF &a, const QPointF &b)
 {
     double dx = b.x() - a.x();
@@ -1092,15 +1091,15 @@ void KLineWidget::drawMovingAverages(QPainter &p)
     QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
     double priceRange = m_maxPrice - m_minPrice;
     if (priceRange <= 0) return;
-    
-    double totalPer = (m_candleWidth * m_scale) + m_gap;
-    int visCount = visibleCount();
-    
+
     auto priceToY = [&](double price) {
         double ratio = (price - m_minPrice) / priceRange;
         return mainRect.bottom() - ratio * mainRect.height();
     };
-    
+
+    double totalPer = (m_candleWidth * m_scale) + m_gap;
+    int visCount = visibleCount();
+    int contentLeft = mainRect.left();
     // Draw MA5 (yellow)
     if (m_showMA5 && !m_ma5.isEmpty()) {
         p.setPen(QPen(QColor(255, 255, 0), 1));
@@ -1108,12 +1107,10 @@ void KLineWidget::drawMovingAverages(QPainter &p)
         for (int i = 0; i < visCount && m_startIndex + i < m_data.size(); ++i) {
             int idx = m_startIndex + i;
             if (idx >= 0 && idx < m_ma5.size()) {
-                double x = marginLeft + i * totalPer + totalPer / 2.0;
+                double x = contentLeft + i * totalPer + totalPer / 2.0;
                 double y = priceToY(m_ma5[idx]);
                 QPointF point(x, y);
-                if (i > 0) {
-                    p.drawLine(lastPoint, point);
-                }
+                if (i > 0) p.drawLine(lastPoint, point);
                 lastPoint = point;
             }
         }
@@ -1126,7 +1123,7 @@ void KLineWidget::drawMovingAverages(QPainter &p)
         for (int i = 0; i < visCount && m_startIndex + i < m_data.size(); ++i) {
             int idx = m_startIndex + i;
             if (idx >= 0 && idx < m_ma10.size()) {
-                double x = marginLeft + i * totalPer + totalPer / 2.0;
+                double x = contentLeft + i * totalPer + totalPer / 2.0;
                 double y = priceToY(m_ma10[idx]);
                 QPointF point(x, y);
                 if (i > 0) {
@@ -1144,7 +1141,7 @@ void KLineWidget::drawMovingAverages(QPainter &p)
         for (int i = 0; i < visCount && m_startIndex + i < m_data.size(); ++i) {
             int idx = m_startIndex + i;
             if (idx >= 0 && idx < m_ma20.size()) {
-                double x = marginLeft + i * totalPer + totalPer / 2.0;
+                double x = contentLeft + i * totalPer + totalPer / 2.0;
                 double y = priceToY(m_ma20[idx]);
                 QPointF point(x, y);
                 if (i > 0) {
@@ -1162,7 +1159,7 @@ void KLineWidget::drawMovingAverages(QPainter &p)
         for (int i = 0; i < visCount && m_startIndex + i < m_data.size(); ++i) {
             int idx = m_startIndex + i;
             if (idx >= 0 && idx < m_ma60.size()) {
-                double x = marginLeft + i * totalPer + totalPer / 2.0;
+                double x = contentLeft + i * totalPer + totalPer / 2.0;
                 double y = priceToY(m_ma60[idx]);
                 QPointF point(x, y);
                 if (i > 0) {
@@ -1172,4 +1169,58 @@ void KLineWidget::drawMovingAverages(QPainter &p)
             }
         }
     }
+}
+
+QRect KLineWidget::mainChartRect() const {
+    const int marginLeft = 5;
+    const int marginTop = 10;
+    const int marginBottom = 20;
+    const int priceAxisWidth = 20;
+    return QRect(marginLeft + priceAxisWidth, marginTop, width() - marginLeft - priceAxisWidth - 10 - m_rightPadding, height() - marginTop - marginBottom);
+}
+
+double KLineWidget::totalPer() const {
+    return (m_candleWidth * m_scale) + m_gap;
+}
+
+int KLineWidget::candleCenterXForIndex(int index) const {
+    QRect r = mainChartRect();
+    double tp = totalPer();
+    if (tp <= 0) return r.left();
+    int rel = index - m_startIndex;
+    double xCenter = r.left() + rel * tp + tp / 2.0;
+    return int(xCenter + 0.5);
+}
+
+int KLineWidget::indexForScreenX(int screenX) const {
+    QRect r = mainChartRect();
+    double tp = totalPer();
+    if (tp <= 0) return m_startIndex;
+    int rel = int((screenX - r.left()) / tp + 0.5);
+    int idx = m_startIndex + rel;
+    idx = qBound(0, idx, m_data.size()-1);
+    return idx;
+}
+
+void KLineWidget::snapCrosshairTo(const QPointF &pos)
+{
+    if (m_data.isEmpty()) return;
+    QRect r = mainChartRect();
+    double tp = totalPer();
+    // default keep Y
+    double y = pos.y();
+    int idx = m_startIndex;
+    if (tp > 0 && r.width() > 0) {
+        int rel = int((pos.x() - r.left()) / tp + 0.5);
+        idx = qBound(0, m_startIndex + rel, m_data.size()-1);
+        double xCenter = r.left() + (idx - m_startIndex) * tp + tp / 2.0;
+        m_crosshairPos.setX(int(xCenter + 0.5));
+    }
+    m_crosshairPos.setY(int(y));
+    double priceRange = m_maxPrice - m_minPrice; if (qFuzzyCompare(priceRange, 0.0)) priceRange = 1.0;
+    double ratio = double(r.bottom() - m_crosshairPos.y()) / double(r.height());
+    double price = m_minPrice + ratio * priceRange;
+    emit crosshairIndexChanged(idx);
+    emit crosshairPriceChanged(price, idx);
+    emit crosshairScreenXChanged(candleCenterXForIndex(idx));
 }

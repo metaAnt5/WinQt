@@ -18,6 +18,7 @@ struct Candle {
 class KLineWidget : public QWidget
 {
     Q_OBJECT
+
 public:
     explicit KLineWidget(QWidget *parent = nullptr);
     void setData(const QVector<Candle> &data);
@@ -54,11 +55,21 @@ public:
     double pointToLineDist(const QPointF &p, const QPointF &a, const QPointF &b);
     double pointToRayDist(const QPointF &p, const QPointF &a, const QPointF &b);
 
-signals:
-    void dataAggregated(const QVector<Candle> &agg);
-    void viewportChanged(int startIndex, int count);
-    void crosshairPriceChanged(double price, int index);
+    // Layout / mapping helpers so other panes can align to the same candle centers
+    QRect mainChartRect() const;
+    double totalPer() const;
+    int candleCenterXForIndex(int index) const;
+    int indexForScreenX(int screenX) const;
+    double candleBodyWidth() const;
+
+Q_SIGNALS:
     void crosshairIndexChanged(int index);
+    void crosshairPriceChanged(double price, int index);
+    void crosshairScreenXChanged(int screenX);
+    void dataAggregated(const QVector<Candle> &data);
+    void viewportChanged(int startIndex, int visibleCount);
+    // Emit when viewport or layout (spacing) changes so indicators can align using the same mapping
+    void layoutChanged(int startIndex, int visibleCount, double totalPer, double candleBodyWidth, QRect mainChartRect);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -121,4 +132,7 @@ private:
     Timeframe m_timeframe;
     int m_baseMinutes; // base timeframe of m_allData in minutes
     int m_nextShapeId; // incremental id for shapes
+
+    void emitCrosshairSignals();
+    void snapCrosshairTo(const QPointF &pos);
 };

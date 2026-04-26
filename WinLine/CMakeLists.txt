@@ -10,39 +10,40 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Concurrent)
 
 set(PROJECT_SOURCES
-        main.cpp
-        mainwindow.cpp
-        mainwindow.h
-        mainwindow.ui
+    # Main UI
+    main.cpp
+    mainwindow.cpp mainwindow.h mainwindow.ui
+    
+    # Chart and Indicators
+    klinewidget.cpp klinewidget.h
+    indicatorwidget.cpp indicatorwidget.h testdata.h
+    volumewidget.cpp volumewidget.h
+    macdwidget.cpp macdwidget.h
+    
+    # Data and Config
+    csvloader.cpp csvloader.h
+    dataprovider.cpp dataprovider.h
+    fhdataprovider.cpp fhdataprovider.h
+    cryptodataprovider.cpp cryptodataprovider.h
+    providerfactory.cpp providerfactory.h
+    marketsconfig.cpp marketsconfig.h
+    dataloader.cpp dataloader.h
+    
+    # Utilities
+    apppaths.cpp apppaths.h
+    clickfilter.cpp clickfilter.h
+    shapedialog.cpp shapedialog.h shapedialog.ui
+    logger.cpp logger.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(WinLine
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        klinewidget.cpp klinewidget.h
-        indicatorwidget.cpp indicatorwidget.h testdata.h
-        csvloader.cpp csvloader.h
-        klinewidget.cpp klinewidget.h volumewidget.cpp volumewidget.h
-        macdwidget.cpp macdwidget.h
-        clickfilter.cpp clickfilter.h
-        klinewidget.cpp klinewidget.h
-
-        shapedialog.cpp shapedialog.h shapedialog.ui
-        marketsconfig.cpp marketsconfig.h
-        providerfactory.cpp providerfactory.h
-        dataprovider.cpp dataprovider.h providerfactory.cpp providerfactory.h
-        apppaths.cpp apppaths.h
-        fhdataprovider.cpp fhdataprovider.h
-        fhdataprovider.cpp fhdataprovider.h
-        cryptodataprovider.cpp cryptodataprovider.h
-        dataprovider.cpp dataprovider.h
-        dataloader.cpp dataloader.h
-        dataprovider.cpp dataprovider.h
-        logger.cpp logger.h
+        chartconfig.cpp chartconfig.h
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET WinLine APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -62,7 +63,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
