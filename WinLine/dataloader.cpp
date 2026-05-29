@@ -17,8 +17,34 @@
 #include <QDateTime>
 #include <memory>
 
-// NetCore RPC 客户端
+// NetCore RPC 客户端和数据管理器
 #include "mt4rpc/KBarRpcService.h"
+#include "mt4rpc/KBarManager.h"
+
+// ============================================================
+// 工具函数：KBar -> Candle 转换
+// ============================================================
+static Candle kbarToCandle(const KBar &kb)
+{
+    Candle c;
+    c.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(kb.time));
+    c.open = kb.open;
+    c.high = kb.high;
+    c.low = kb.low;
+    c.close = kb.close;
+    c.volume = static_cast<double>(kb.volume);
+    return c;
+}
+
+static QVector<Candle> kbarVectorToCandles(const std::vector<KBar> &bars)
+{
+    QVector<Candle> result;
+    result.reserve(static_cast<int>(bars.size()));
+    for (const auto &kb : bars) {
+        result.append(kbarToCandle(kb));
+    }
+    return result;
+}
 
 // ============================================================
 // DataLoader::Impl - 封装 RPC 客户端逻辑
@@ -28,9 +54,7 @@ public:
     explicit Impl(DataLoader *parent)
         : m_parent(parent)
     {
-        // 加载服务器配置
         KBarRpcService::Config cfg = loadConfig();
-
         m_rpc = std::make_shared<KBarRpcService>(cfg);
 
         // 连接状态回调
@@ -46,9 +70,12 @@ public:
             emit m_parent->connectionStatusChanged(connected);
         };
 
-        // 推送回调：收到新 K 线数据时通过信号通知主线程
+        // 推送回调：收到新 K 线数据 -> 写入 KBarManager + 通知 UI
         m_rpc->on_kbar_pushed = [this](const KBar &kbar) {
-            // 通过信号安全跨线程通知
+            // 1) 写入 KBarManager（线程安全）
+            KBarManager::instance().add_kbar(kbar);
+
+            // 2) 通过信号通知主线程更新 UI
             emit m_parent->pushDataReady(
                 QString::fromStdString(kbar.symbol),
                 kbar.timeFrame,
@@ -87,25 +114,21 @@ public:
         return m_rpc && m_rpc->is_running();
     }
 
-    // 尝试通过 RPC 获取数据（同步调用，应在后台线程执行）
+    // 通过 RPC 获取数据（同步调用，应在后台线程执行）
     bool fetchBars(const std::string &symbol, int timeFrame,
                    std::vector<KBar> &out)
     {
         if (!m_rpc || !m_rpc->is_running()) return false;
-
-        bool ok = m_rpc->fetch_kbars(symbol, timeFrame, out);
-        return ok;
+        return m_rpc->fetch_kbars(symbol, timeFrame, out);
     }
 
 private:
     DataLoader *m_parent;
     std::shared_ptr<KBarRpcService> m_rpc;
 
-    // 加载 server.json 配置文件
     static KBarRpcService::Config loadConfig() {
         KBarRpcService::Config cfg;
         QFile f(QCoreApplication::applicationDirPath() + "/config/server.json");
-        // 也试试相对路径
         if (!f.exists()) {
             f.setFileName(QCoreApplication::applicationDirPath() + "/../config/server.json");
         }
@@ -131,7 +154,6 @@ private:
 // ============================================================
 // DataLoader 公开接口
 // ============================================================
-
 DataLoader::DataLoader(KLineWidget *k, QObject *parent)
     : QObject(parent), m_k(k)
     , m_impl(std::make_unique<Impl>(this))
@@ -163,9 +185,30 @@ QTextEdit *DataLoader::getLogWidget() const
 }
 
 // ============================================================
-// 核心加载流程：两阶段加载
+// 从 KBarManager 加载并显示
 // ============================================================
-void DataLoader::requestInitialLoad(const QString &symbol, int timeframeMinutes, QTreeWidgetItem *symItem)
+void DataLoader::loadFromManagerAndDisplay(const QString &symbol, int tf)
+{
+    std::vector<KBar> bars = KBarManager::instance().get_kbars(
+        symbol.toStdString(), tf);
+    if (bars.empty()) return;
+
+    QVector<Candle> candles = kbarVectorToCandles(bars);
+
+    // 限制最大显示条数
+    if (candles.size() > 6000) {
+        candles = candles.mid(candles.size() - 6000);
+    }
+
+    if (m_k) {
+        m_k->setData(candles, tf);
+    }
+}
+
+// ============================================================
+// 核心加载流程
+// ============================================================
+void DataLoader::requestLoad(const QString &symbol, int timeframeMinutes, QTreeWidgetItem *symItem)
 {
     if (m_loading) {
         QTextEdit *log = getLogWidget();
@@ -197,15 +240,43 @@ void DataLoader::requestInitialLoad(const QString &symbol, int timeframeMinutes,
     m_timeframe = timeframeMinutes;
     m_symItem = symItem;
 
-    // 发射加载开始信号
     emit loadStarted(symbol, timeframeMinutes);
 
     QTextEdit *logText = getLogWidget();
     if (logText) logText->append(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(timeframeMinutes));
 
-    // --------------------------------------------------------
-    // 第一阶段：读取本地数据
-    // --------------------------------------------------------
+    // ================================================================
+    // 第 0 步：检查 KBarManager 是否已有缓存
+    // ================================================================
+    if (KBarManager::instance().kbar_count(symbol.toStdString(), timeframeMinutes) > 0) {
+        if (logText) logText->append(QStringLiteral("缓存命中，直接显示 %1 %2min").arg(symbol).arg(timeframeMinutes));
+        loadFromManagerAndDisplay(symbol, timeframeMinutes);
+        m_loading = false;
+        emit loadFinished(symbol, timeframeMinutes, true);
+        return;
+    }
+
+    // ================================================================
+    // 第一步：后台线程读取本地 CSV 并写入 KBarManager
+    // ================================================================
+    loadLocalToManager(symbol, timeframeMinutes, symItem);
+
+    // ================================================================
+    // 第二步：后台线程通过 RPC 获取全量数据并写入 KBarManager
+    // ================================================================
+    fetchRpcToManager(symbol, timeframeMinutes);
+}
+
+// ============================================================
+// 后台：读取本地 CSV 并写入 KBarManager
+// ============================================================
+void DataLoader::loadLocalToManager(const QString &symbol, int tf, QTreeWidgetItem *symItem)
+{
+    if (!symItem) {
+        m_loading = false;
+        return;
+    }
+
     QString dataDir = symItem->data(0, Qt::UserRole + 1).toString();
     QString apiType = symItem->data(0, Qt::UserRole + 2).toString();
     QString filenamePattern = symItem->data(0, Qt::UserRole + 6).toString();
@@ -216,175 +287,116 @@ void DataLoader::requestInitialLoad(const QString &symbol, int timeframeMinutes,
         dataDir.isEmpty() ? QDir(QCoreApplication::applicationDirPath()).filePath("data") : dataDir,
         filenamePattern, readerType, nullptr);
 
+    QTextEdit *logText = getLogWidget();
     if (logText) logText->append(QStringLiteral("正在读取本地数据..."));
 
+    // 后台线程读取
     QFutureWatcher<QVector<Candle>> *w = new QFutureWatcher<QVector<Candle>>(this);
-    QObject::connect(w, &QFutureWatcher<QVector<Candle>>::finished, [this, w, prov, symbol, timeframeMinutes]() {
-        QVector<Candle> localData = w->future().result();
+    QObject::connect(w, &QFutureWatcher<QVector<Candle>>::finished, [this, w, prov, symbol, tf]() {
+        QVector<Candle> localCandles = w->future().result();
         QTextEdit *logText = getLogWidget();
 
-        bool hasLocal = !localData.isEmpty();
-
-        if (hasLocal) {
-            // 本地数据加载成功，立即显示
-            if (localData.size() > 6000) {
-                localData = localData.mid(localData.size() - 6000);
-            }
-            if (m_k) {
-                m_k->setData(localData, m_timeframe);
+        if (!localCandles.isEmpty()) {
+            // 限制最大 6000 条
+            if (localCandles.size() > 6000) {
+                localCandles = localCandles.mid(localCandles.size() - 6000);
             }
 
-            // 获取 CSV 路径用于日志
-            QString csvPath = m_symItem ? m_symItem->data(0, Qt::UserRole + 3).toString() : QString();
-            if (csvPath.isEmpty() && m_symItem) {
-                QString dDir = m_symItem->data(0, Qt::UserRole + 1).toString();
-                QString fnPattern = m_symItem->data(0, Qt::UserRole + 6).toString();
-                QString baseDir = dDir.isEmpty() ? QDir(QCoreApplication::applicationDirPath()).filePath("data") : dDir;
-                if (!fnPattern.isEmpty()) {
-                    QString p = fnPattern; p.replace("%{symbol}", m_symbol); p.replace("%{tf}", QString::number(m_timeframe));
-                    csvPath = QDir(baseDir).filePath(p);
-                } else csvPath = QDir(baseDir).filePath(m_symbol + ".csv");
+            // 转换为 KBar 并批量写入 KBarManager（一次锁）
+            std::vector<KBar> bars;
+            bars.reserve(localCandles.size());
+            std::string symStd = symbol.toStdString();
+            for (const auto &c : localCandles) {
+                KBar kb;
+                kb.symbol = symStd;
+                kb.timeFrame = tf;
+                kb.time = static_cast<uint64_t>(c.date.toSecsSinceEpoch());
+                kb.open = c.open;
+                kb.high = c.high;
+                kb.low = c.low;
+                kb.close = c.close;
+                kb.volume = static_cast<uint64_t>(c.volume);
+                bars.push_back(kb);
             }
+            KBarManager::instance().add_kbars(symStd, tf, bars);
 
-            if (logText) logText->append(QStringLiteral("本地数据加载完成，共 %1 条 (%2)").arg(localData.size()).arg(csvPath));
+            if (logText) logText->append(QStringLiteral("本地数据加载完成，共 %1 条").arg(localCandles.size()));
 
-            // 发射信号
-            emit localDataLoaded(m_symbol, m_timeframe, localData.size());
+            // 从 KBarManager 读取并显示
+            loadFromManagerAndDisplay(symbol, tf);
+
+            emit loadFinished(symbol, tf, true);
         } else {
             if (logText) logText->append(QStringLiteral("本地无数据"));
         }
 
-        // --------------------------------------------------------
-        // 第二阶段：通过 RPC 获取全量数据（后台线程）
-        // --------------------------------------------------------
-        bool rpcAvailable = m_impl && m_impl->isRunning();
-
-        if (rpcAvailable) {
-            if (logText) logText->append(QStringLiteral("正在从服务器获取全量数据..."));
-
-            // 在后台线程执行 RPC 请求
-            QFutureWatcher<std::vector<KBar>> *rpcWatcher = new QFutureWatcher<std::vector<KBar>>(this);
-            QObject::connect(rpcWatcher, &QFutureWatcher<std::vector<KBar>>::finished, [this, rpcWatcher, hasLocal, localData, symbol, timeframeMinutes]() {
-                std::vector<KBar> rpcBars = rpcWatcher->future().result();
-                QTextEdit *logText = getLogWidget();
-
-                if (!rpcBars.empty()) {
-                    // 将 KBar 转换为 Candle
-                    QVector<Candle> rpcCandles;
-                    rpcCandles.reserve(static_cast<int>(rpcBars.size()));
-                    for (const auto &kb : rpcBars) {
-                        Candle c;
-                        c.date = QDateTime::fromSecsSinceEpoch(kb.time);
-                        c.open = kb.open;
-                        c.high = kb.high;
-                        c.low = kb.low;
-                        c.close = kb.close;
-                        c.volume = static_cast<double>(kb.volume);
-                        rpcCandles.append(c);
-                    }
-
-                    if (logText) logText->append(QStringLiteral("服务器数据加载完成，共 %1 条").arg(rpcCandles.size()));
-                    emit rpcDataLoaded(m_symbol, m_timeframe, rpcCandles.size());
-
-                    // 合并本地和 RPC 数据（按时间戳去重）
-                    QVector<Candle> merged;
-                    if (hasLocal) {
-                        // 合并去重
-                        merged.reserve(localData.size() + rpcCandles.size());
-                        int li = 0, ri = 0;
-                        while (li < localData.size() && ri < rpcCandles.size()) {
-                            if (localData[li].date < rpcCandles[ri].date) {
-                                merged.append(localData[li++]);
-                            } else if (localData[li].date > rpcCandles[ri].date) {
-                                merged.append(rpcCandles[ri++]);
-                            } else {
-                                // 时间相同，用 RPC 数据（更新更准确）
-                                merged.append(rpcCandles[ri++]);
-                                li++;
-                            }
-                        }
-                        while (li < localData.size()) merged.append(localData[li++]);
-                        while (ri < rpcCandles.size()) merged.append(rpcCandles[ri++]);
-
-                        if (logText) logText->append(QStringLiteral("合并后共 %1 条 K 线").arg(merged.size()));
-                    } else {
-                        // 只有 RPC 数据
-                        merged = rpcCandles;
-                    }
-
-                    // 显示合并后的数据
-                    if (m_k) {
-                        if (merged.size() > 6000) {
-                            merged = merged.mid(merged.size() - 6000);
-                        }
-                        m_k->setData(merged, m_timeframe);
-                    }
-
-                    if (logText) logText->append(QStringLiteral("%1 %2min 加载完成").arg(m_symbol).arg(m_timeframe));
-                    emit loadFinished(m_symbol, m_timeframe, true);
-                } else {
-                    // RPC 返回空数据（连接正常但服务器无数据）
-                    if (logText) logText->append(QStringLiteral("服务器无数据"));
-
-                    if (!hasLocal) {
-                        QString reason = QStringLiteral("RPC 返回数据为空");
-                        if (logText) logText->append(QStringLiteral("加载 %1 %2min 失败: 本地无数据且 %3")
-                            .arg(m_symbol).arg(m_timeframe).arg(reason));
-                        emit loadFailed(m_symbol, m_timeframe, reason);
-                    } else {
-                        emit loadFinished(m_symbol, m_timeframe, true);
-                    }
-                }
-
-
-                // 清理
-                m_loading = false;
-                rpcWatcher->deleteLater();
-            });
-
-            // 启动后台 RPC 请求
-            QFuture<std::vector<KBar>> rpcFuture = QtConcurrent::run([this, symbol, timeframeMinutes]() -> std::vector<KBar> {
-                std::vector<KBar> out;
-                // 从 Impl 获取 RPC 数据
-                if (m_impl) {
-                    // 日志输出（不能在后台线程直接操作 GUI，但 logText 追加可以）
-                    m_impl->fetchBars(symbol.toStdString(), timeframeMinutes, out);
-                }
-                return out;
-            });
-            rpcWatcher->setFuture(rpcFuture);
-        } else {
-            // RPC 不可用
-            if (logText) {
-                if (!hasLocal) {
-                    logText->append(QStringLiteral("加载 %1 %2min 失败: 本地无数据且 RPC 未连接")
-                        .arg(m_symbol).arg(m_timeframe));
-                } else {
-                    logText->append(QStringLiteral("%1 %2min 加载完成 (仅本地数据)").arg(m_symbol).arg(m_timeframe));
-                }
-            }
-
-            if (!hasLocal) {
-                emit loadFailed(m_symbol, m_timeframe, QStringLiteral("RPC 未连接"));
-            } else {
-                emit loadFinished(m_symbol, m_timeframe, true);
-            }
-
-            // 清理
-            m_loading = false;
-        }
-
+        m_loading = false;
         prov->deleteLater();
         w->deleteLater();
     });
 
-    // 启动后台本地数据读取
-    QFuture<QVector<Candle>> f = QtConcurrent::run([prov, symbol, timeframeMinutes]() -> QVector<Candle> {
+    QFuture<QVector<Candle>> f = QtConcurrent::run([prov, symbol, tf]() -> QVector<Candle> {
         QVector<Candle> out;
-        if (!prov->loadLocalData(symbol, timeframeMinutes, out)) out.clear();
+        if (!prov->loadLocalData(symbol, tf, out)) out.clear();
         return out;
     });
     w->setFuture(f);
+}
+
+// ============================================================
+// 后台：通过 RPC 获取数据并写入 KBarManager
+// ============================================================
+void DataLoader::fetchRpcToManager(const QString &symbol, int tf)
+{
+    if (!m_impl || !m_impl->isRunning()) {
+        QTextEdit *logText = getLogWidget();
+        if (logText) logText->append(QStringLiteral("RPC 未连接，跳过远程数据获取"));
+        return;
+    }
+
+    QTextEdit *logText = getLogWidget();
+    if (logText) logText->append(QStringLiteral("正在从服务器获取全量数据..."));
+
+    // 后台线程执行 RPC 请求
+    QFutureWatcher<std::vector<KBar>> *rpcWatcher = new QFutureWatcher<std::vector<KBar>>(this);
+    QObject::connect(rpcWatcher, &QFutureWatcher<std::vector<KBar>>::finished, [this, rpcWatcher, symbol, tf]() {
+        std::vector<KBar> rpcBars = rpcWatcher->future().result();
+        QTextEdit *logText = getLogWidget();
+
+        if (!rpcBars.empty()) {
+            if (logText) logText->append(QStringLiteral("服务器数据加载完成，共 %1 条").arg(rpcBars.size()));
+
+            // 写入 KBarManager（自动去重合并）
+            KBarManager::instance().add_kbars(symbol.toStdString(), tf, rpcBars);
+
+            // 限制最大 6000 条后刷新显示
+            std::vector<KBar> allBars = KBarManager::instance().latest_kbars(
+                symbol.toStdString(), tf,
+                std::min<size_t>(KBarManager::instance().kbar_count(symbol.toStdString(), tf), 6000));
+
+            if (!allBars.empty()) {
+                QVector<Candle> candles = kbarVectorToCandles(allBars);
+                if (m_k && symbol == m_symbol && tf == m_timeframe) {
+                    m_k->setData(candles, tf);
+                }
+            }
+
+            if (logText) logText->append(QStringLiteral("%1 %2min 加载完成").arg(symbol).arg(tf));
+        } else {
+            if (logText) logText->append(QStringLiteral("服务器返回空数据"));
+        }
+
+        rpcWatcher->deleteLater();
+    });
+
+    QFuture<std::vector<KBar>> rpcFuture = QtConcurrent::run([this, symbol, tf]() -> std::vector<KBar> {
+        std::vector<KBar> out;
+        if (m_impl) {
+            m_impl->fetchBars(symbol.toStdString(), tf, out);
+        }
+        return out;
+    });
+    rpcWatcher->setFuture(rpcFuture);
 }
 
 bool DataLoader::eventFilter(QObject *watched, QEvent *event)

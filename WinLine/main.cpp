@@ -219,7 +219,7 @@ int main(int argc, char *argv[])
                 QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
                 return;
             }
-            loader->requestInitialLoad(currentSymbol, currentTf, symItem);
+            loader->requestLoad(currentSymbol, currentTf, symItem);
         });
     };
     makeTfHandler(a1, 1);
@@ -256,23 +256,11 @@ int main(int argc, char *argv[])
             klineWidget->showLoading(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(tf));
         });
 
-        // 本地数据加载完成 -> 先隐藏 Loading（如果 RPC 还未返回，也不阻塞界面）
-        QObject::connect(loader, &DataLoader::localDataLoaded, klineWidget, [klineWidget]() {
-            klineWidget->hideLoading();
-        });
-
-        // 加载失败 -> 隐藏 Loading
-        QObject::connect(loader, &DataLoader::loadFailed, klineWidget, [klineWidget]() {
-            klineWidget->hideLoading();
-        });
-
-        // RPC 数据加载完成 -> 隐藏 Loading
-        QObject::connect(loader, &DataLoader::rpcDataLoaded, klineWidget, [klineWidget]() {
-            klineWidget->hideLoading();
-        });
-
-        // 加载完成 -> 隐藏 Loading
+        // 加载完成或失败 -> 隐藏 Loading
         QObject::connect(loader, &DataLoader::loadFinished, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+        QObject::connect(loader, &DataLoader::loadFailed, klineWidget, [klineWidget]() {
             klineWidget->hideLoading();
         });
 
@@ -323,7 +311,7 @@ int main(int argc, char *argv[])
             QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
             return;
         }
-        loader->requestInitialLoad(symbol, currentTf, item);
+        loader->requestLoad(symbol, currentTf, item);
     });
 
     // main horizontal splitter: left list, right area
