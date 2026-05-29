@@ -39,7 +39,6 @@ set(PROJECT_SOURCES
     providerfactory.cpp providerfactory.h
     marketsconfig.cpp marketsconfig.h
     dataloader.cpp dataloader.h
-    datacache.cpp datacache.h
     
     # Utilities
     apppaths.cpp apppaths.h

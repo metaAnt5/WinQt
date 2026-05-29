@@ -33,7 +33,6 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include <QFutureWatcher>
 #include "dataloader.h"
-#include "datacache.h"
 
 int main(int argc, char *argv[])
 {
@@ -220,7 +219,7 @@ int main(int argc, char *argv[])
                 QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
                 return;
             }
-            loader->requestLoad(currentSymbol, currentTf, symItem);
+            loader->requestInitialLoad(currentSymbol, currentTf, symItem);
         });
     };
     makeTfHandler(a1, 1);
@@ -249,7 +248,7 @@ int main(int argc, char *argv[])
         }
 
         // ================================================================
-        // 连接 DataLoader 信号
+        // 连接 DataLoader 信号，实现 Loading 覆盖层和推送数据更新
         // ================================================================
 
         // 加载开始 -> 显示 Loading
@@ -257,8 +256,18 @@ int main(int argc, char *argv[])
             klineWidget->showLoading(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(tf));
         });
 
+        // 本地数据加载完成 -> 先隐藏 Loading（如果 RPC 还未返回，也不阻塞界面）
+        QObject::connect(loader, &DataLoader::localDataLoaded, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+
         // 加载失败 -> 隐藏 Loading
         QObject::connect(loader, &DataLoader::loadFailed, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+
+        // RPC 数据加载完成 -> 隐藏 Loading
+        QObject::connect(loader, &DataLoader::rpcDataLoaded, klineWidget, [klineWidget]() {
             klineWidget->hideLoading();
         });
 
@@ -267,12 +276,33 @@ int main(int argc, char *argv[])
             klineWidget->hideLoading();
         });
 
-        // 数据就绪 -> 关联到 KLineWidget
-        QObject::connect(loader, &DataLoader::dataReady, klineWidget,
-            [klineWidget](const QString &, int, const QVector<Candle> &data) {
-                // data is already set via loadFromCacheAndDisplay -> setData
-                // setConnectionStatus is handled by Impl
-            });
+        // 连接状态变化 -> 更新实时价格标签的圆点颜色
+        QObject::connect(loader, &DataLoader::connectionStatusChanged, klineWidget,
+            &KLineWidget::setConnectionStatus);
+
+        // 推送数据到达 -> 实时更新 K 线图（跨线程安全，信号会自动切换到主线程）
+        QObject::connect(loader, &DataLoader::pushDataReady, klineWidget,
+            [klineWidget, loader](const QString &symbol, int timeFrame,
+                                  uint64_t time, double open, double high,
+                                  double low, double close, double volume)
+        {
+            // 只处理当前正在显示的品种和周期
+            if (symbol != loader->currentSymbol() || timeFrame != loader->currentTimeframe()) {
+                return;
+            }
+
+            // 构造单根 Candle
+            Candle c;
+            c.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(time));
+            c.open = open;
+            c.high = high;
+            c.low = low;
+            c.close = close;
+            c.volume = volume;
+
+            // 更新 K 线图（内部判断是同根更新还是新 K 线追加）
+            klineWidget->updateRealtimeCandle(c);
+        });
     }
 
 
@@ -293,7 +323,7 @@ int main(int argc, char *argv[])
             QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
             return;
         }
-        loader->requestLoad(symbol, currentTf, item);
+        loader->requestInitialLoad(symbol, currentTf, item);
     });
 
     // main horizontal splitter: left list, right area
