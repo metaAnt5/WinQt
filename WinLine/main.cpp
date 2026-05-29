@@ -209,6 +209,7 @@ int main(int argc, char *argv[])
                 QMessageBox::information(&mainWindow, QStringLiteral("未选择品种"), QStringLiteral("请先在左侧选择一个品种，然后再切换周期。"));
                 return;
             }
+            logText->append(QStringLiteral("切换到周期: %1min  品种: %2").arg(tf).arg(currentSymbol));
             QTreeWidget *tree = mainWindow.findChild<QTreeWidget*>();
             if (!tree) return;
             QList<QTreeWidgetItem*> matches = tree->findItems(currentSymbol, Qt::MatchRecursive | Qt::MatchExactly, 0);
@@ -299,12 +300,14 @@ int main(int argc, char *argv[])
         if (!item) return;
         if (item->childCount() > 0) return;
         QString symbol = item->text(0);
+        logText->append(QStringLiteral("切换到品种: %1  周期: %2min").arg(symbol).arg(currentTf));
         currentSymbol = symbol;
         updateTitle();
         item->setSelected(true);
 
         // Switch from welcome to chart view
         rightStack->setCurrentIndex(1);
+        logText->append(QStringLiteral("切换到图表视图"));
 
         DataLoader *loader = mainWindow.findChild<DataLoader*>();
         if (!loader) {

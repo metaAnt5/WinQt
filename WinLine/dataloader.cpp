@@ -57,6 +57,12 @@ public:
         KBarRpcService::Config cfg = loadConfig();
         m_rpc = std::make_shared<KBarRpcService>(cfg);
 
+        // RPC 日志 -> 输出到 log widget
+        m_rpc->on_log_message = [this](const std::string &msg) {
+            QTextEdit *log = m_parent->getLogWidget();
+            if (log) log->append(QString::fromStdString(msg));
+        };
+
         // 连接状态回调
         m_rpc->on_connection_changed = [this](bool connected) {
             QTextEdit *log = m_parent->getLogWidget();

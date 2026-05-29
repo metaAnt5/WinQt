@@ -41,12 +41,15 @@ public:
     bool start() {
         if (running_) return true;
 
+        log_msg("[RPC] IoContextManager starting...");
         if (!io_mgr_->start()) {
             if (on_error_) on_error_("Failed to start IoContextManager");
             return false;
         }
 
         running_ = true;
+
+        log_msg("[RPC] Spawning connect_and_read_loop...");
 
         // 在 io_context 上发起连接和读循环
         asio::co_spawn(io_mgr_->get_io_context(),
@@ -59,6 +62,7 @@ public:
     }
 
     void stop() {
+        log_msg("[RPC] Stopping RPC client...");
         running_ = false;
         if (client_) {
             client_->disconnect();
@@ -67,6 +71,10 @@ public:
         if (io_mgr_) {
             io_mgr_->stop();
         }
+    }
+
+    void set_on_log_message(std::function<void(const std::string&)> cb) {
+        on_log_message_ = std::move(cb);
     }
 
     // ---- 数据接口（同步方式，内部用 async + promise）----
@@ -100,6 +108,11 @@ private:
     std::function<void(const KBar&)> on_kbar_pushed_;
     std::function<void(bool)> on_connection_changed_;
     std::function<void(const std::string&)> on_error_;
+    std::function<void(const std::string&)> on_log_message_;
+
+    void log_msg(const std::string& msg) {
+        if (on_log_message_) on_log_message_(msg);
+    }
 
     // 同步等待响应
     bool do_fetch(const std::string& symbol, int timeFrame, uint16_t count, std::vector<KBar>& out) {
@@ -132,11 +145,13 @@ private:
     asio::awaitable<IResponse> async_fetch(const std::string& symbol, int timeFrame, uint16_t count) {
         // 确保已连接
         if (!ensure_connected()) {
+            log_msg("[RPC] async_fetch: not connected");
             co_return IResponse(0, 0, METHOD_GET_KBARS, {}, RpcError::NOT_CONNECTED);
         }
 
         auto conn = client_->GetConnection();
         if (!conn || conn->state() != ConnectionState::CONNECTED) {
+            log_msg("[RPC] async_fetch: connection state not CONNECTED");
             co_return IResponse(0, 0, METHOD_GET_KBARS, {}, RpcError::NOT_CONNECTED);
         }
 
@@ -151,15 +166,27 @@ private:
         req_msg->set_flags(static_cast<uint8_t>(RpcFlag::REQUEST));
         req_msg->set_req_id(req_id);
 
+        log_msg(std::string("[RPC] Sending GET_KBARS req_id=") + std::to_string(req_id)
+                + " symbol=" + symbol + " tf=" + std::to_string(timeFrame)
+                + " count=" + std::to_string(count));
+
         // 使用 BinaryPacker 发送
         BinaryPacker packer;
         IMessage::Ptr imsg = std::static_pointer_cast<IMessage>(req_msg);
         if (!packer.pack(conn, imsg)) {
+            log_msg(std::string("[RPC] GET_KBARS req_id=") + std::to_string(req_id) + " SEND_FAILED");
             co_return IResponse(req_id, 0, METHOD_GET_KBARS, {}, RpcError::SEND_FAILED);
         }
 
         // 等待响应（在 read_loop 中匹配 req_id）
         auto response = co_await wait_for_response(req_id, config_.request_timeout_ms);
+
+        if (response.error_code() == 0) {
+            log_msg(std::string("[RPC] GET_KBARS req_id=") + std::to_string(req_id) + " OK");
+        } else {
+            log_msg(std::string("[RPC] GET_KBARS req_id=") + std::to_string(req_id)
+                    + " error=" + std::to_string(response.error_code()));
+        }
 
         co_return response;
     }
@@ -201,6 +228,8 @@ private:
             return true;
         }
 
+        log_msg(std::string("[RPC] Connecting to ") + config_.host + ":" + std::to_string(config_.port) + " ...");
+
         client_ = std::make_shared<Client>(io_mgr_->get_io_context());
         auto conn = client_->GetConnection();
 
@@ -213,12 +242,15 @@ private:
             -> asio::awaitable<void> {
                 bool ok = co_await client_->async_connect(config_.host, config_.port);
                 if (ok) {
+                    log_msg("[RPC] TCP connected successfully, starting read loop...");
                     // 启动读循环
                     asio::co_spawn(io_mgr_->get_io_context(),
                         [this]() -> asio::awaitable<void> {
                             co_await read_loop();
                         },
                         asio::detached);
+                } else {
+                    log_msg("[RPC] TCP connection failed");
                 }
                 promise.set_value(ok);
             },
@@ -226,7 +258,10 @@ private:
 
         bool ok = conn_future.get();
         if (ok && on_connection_changed_) {
+            log_msg("[RPC] Connection established");
             on_connection_changed_(true);
+        } else {
+            log_msg("[RPC] Connection NOT established");
         }
         return ok;
     }
@@ -304,21 +339,30 @@ private:
         }
 
         // 连接断开
+        log_msg("[RPC] Connection lost / disconnected");
         if (on_connection_changed_) {
             on_connection_changed_(false);
         }
 
         // 清理所有等待的请求
-        std::lock_guard<std::mutex> lock(pending_mutex_);
-        for (auto& [id, cb] : pending_responses_) {
-            cb(IResponse(id, 0, 0, {}, RpcError::CONNECTION_LOST));
+        {
+            std::lock_guard<std::mutex> lock(pending_mutex_);
+            size_t pending_count = pending_responses_.size();
+            if (pending_count > 0) {
+                log_msg(std::string("[RPC] Cancelling ") + std::to_string(pending_count) + " pending requests");
+            }
+            for (auto& [id, cb] : pending_responses_) {
+                cb(IResponse(id, 0, 0, {}, RpcError::CONNECTION_LOST));
+            }
+            pending_responses_.clear();
         }
-        pending_responses_.clear();
 
         // 如果是自动重连
         if (running_ && config_.auto_reconnect) {
+            log_msg(std::string("[RPC] Auto-reconnecting in ") + std::to_string(config_.reconnect_interval_ms) + "ms...");
             std::this_thread::sleep_for(std::chrono::milliseconds(config_.reconnect_interval_ms));
             if (running_) {
+                log_msg("[RPC] Reconnecting...");
                 asio::co_spawn(io_mgr_->get_io_context(),
                     [this]() -> asio::awaitable<void> {
                         co_await connect_and_read_loop();
@@ -372,6 +416,7 @@ bool KBarRpcService::start() {
     impl_->set_on_kbar_pushed(on_kbar_pushed);
     impl_->set_on_connection_changed(on_connection_changed);
     impl_->set_on_error(on_error);
+    impl_->set_on_log_message(on_log_message);
 
     if (impl_->start()) {
         running_ = true;

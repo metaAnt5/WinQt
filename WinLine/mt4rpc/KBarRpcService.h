@@ -163,6 +163,9 @@ public:
     // 错误回调
     std::function<void(const std::string& error)> on_error;
 
+    // 日志消息回调（跨线程，字符串小，用值传递即可）
+    std::function<void(const std::string& message)> on_log_message;
+
     // 获取配置
     const Config& config() const { return config_; }
 
