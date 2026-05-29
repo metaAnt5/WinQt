@@ -51,6 +51,9 @@ public:
         QDateTime tradeTime;       // 成交时间
         int quantity = 1;          // 数量
         double profit = 0.0;       // 平仓盈亏
+        // script extension fields
+        QString scriptName;        // 关联的 Lua 脚本名称（如 "ma_cross.lua"）
+        QString scriptParams;      // 脚本参数（JSON 字符串，灵活扩展）
     };
 
     void setToolMode(ToolMode m);
@@ -80,6 +83,9 @@ public:
     void setSymbol(const QString &s);
     void setConnectionStatus(bool connected);
 
+    // Helper: find candle index by time (binary search on m_allData)
+    int findCandleIndexByTime(const QDateTime &time) const;
+
 Q_SIGNALS:
     void crosshairIndexChanged(int index);
     void crosshairPriceChanged(double price, int index);
@@ -88,6 +94,8 @@ Q_SIGNALS:
     void viewportChanged(int startIndex, int visibleCount);
     // Emit when viewport or layout (spacing) changes so indicators can align using the same mapping
     void layoutChanged(int startIndex, int visibleCount, double totalPer, double candleBodyWidth, QRect mainChartRect);
+    // Emit when shapes or trades are modified
+    void shapesChanged();
 
 protected:
     void paintEvent(QPaintEvent *event) override;

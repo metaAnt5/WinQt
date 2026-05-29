@@ -381,6 +381,7 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             m_lastMousePos = event->pos();
             update();
             setFocus();
+            emit shapesChanged();
             return;
         }
     }
@@ -1069,6 +1070,7 @@ void KLineWidget::deleteSelectedShape()
         m_shapes.removeAt(m_selectedShapeIndex);
         m_selectedShapeIndex = -1;
         update();
+        emit shapesChanged();
     }
 }
 
@@ -1077,6 +1079,7 @@ void KLineWidget::clearShapes()
     m_shapes.clear();
     m_selectedShapeIndex = -1;
     update();
+    emit shapesChanged();
 }
 
 void KLineWidget::wheelEvent(QWheelEvent *event)
@@ -1154,6 +1157,7 @@ void KLineWidget::editShapeProperties(int index)
             s.text = s.name;
         }
         update();
+        emit shapesChanged();
     }
 }
 
@@ -1482,6 +1486,26 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
     emit viewportChanged(m_startIndex, visibleCount());
     emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
     update();
+}
+
+int KLineWidget::findCandleIndexByTime(const QDateTime &time) const
+{
+    // binary search on m_allData
+    if (m_allData.isEmpty() || !time.isValid()) return -1;
+    int lo = 0, hi = m_allData.size() - 1;
+    while (lo <= hi) {
+        int mid = (lo + hi) / 2;
+        if (m_allData[mid].date == time) return mid;
+        if (m_allData[mid].date < time) lo = mid + 1;
+        else hi = mid - 1;
+    }
+    // not found, return nearest
+    if (hi < 0) return 0;
+    if (lo >= m_allData.size()) return m_allData.size() - 1;
+    // return the closer one
+    if (qAbs(m_allData[lo].date.msecsTo(time)) < qAbs(m_allData[hi].date.msecsTo(time)))
+        return lo;
+    return hi;
 }
 
 void KLineWidget::setSymbol(const QString &s)
