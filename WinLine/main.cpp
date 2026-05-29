@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "welcomewidget.h"
 
 #include <QApplication>
 #include <QMessageBox>
@@ -177,6 +178,17 @@ int main(int argc, char *argv[])
     }
     cfg.populateTree(tree);
 
+    // ============================================================
+    // Welcome widget (shown initially on the right side)
+    // ============================================================
+    WelcomeWidget *welcome = new WelcomeWidget;
+
+    // Right-side stacked widget: 0 = welcome, 1 = chart area
+    QStackedWidget *rightStack = new QStackedWidget;
+    rightStack->addWidget(welcome);   // index 0
+    rightStack->addWidget(rightSplit); // index 1
+    rightStack->setCurrentIndex(0);   // show welcome first
+
     // global current timeframe; default 1 minute
     int currentTf = 1;
     QString currentSymbol;
@@ -294,14 +306,18 @@ int main(int argc, char *argv[])
     }
 
 
-    // double-click symbol loads data for currentTf and marks tree selection
-    QObject::connect(tree, &QTreeWidget::itemDoubleClicked, [&mainWindow, &logText, &currentTf, &currentSymbol, &updateTitle](QTreeWidgetItem *item, int){
+    // double-click symbol loads data for currentTf, switches to chart view and marks tree selection
+    QObject::connect(tree, &QTreeWidget::itemDoubleClicked, [&mainWindow, &logText, &currentTf, &currentSymbol, &updateTitle, rightStack](QTreeWidgetItem *item, int){
         if (!item) return;
         if (item->childCount() > 0) return;
         QString symbol = item->text(0);
         currentSymbol = symbol;
         updateTitle();
         item->setSelected(true);
+
+        // Switch from welcome to chart view
+        rightStack->setCurrentIndex(1);
+
         DataLoader *loader = mainWindow.findChild<DataLoader*>();
         if (!loader) {
             QMessageBox::warning(&mainWindow, QStringLiteral("加载器不存在"), QStringLiteral("数据加载器未初始化。"));
@@ -313,7 +329,7 @@ int main(int argc, char *argv[])
     // main horizontal splitter: left list, right area
     QSplitter *split = new QSplitter(Qt::Horizontal, &mainWindow);
     split->addWidget(tree);
-    split->addWidget(rightSplit);
+    split->addWidget(rightStack);
     mainWindow.setCentralWidget(split);
     split->setStretchFactor(0, 1);
     split->setStretchFactor(1, 3);

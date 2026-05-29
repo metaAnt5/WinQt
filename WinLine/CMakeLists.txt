@@ -23,6 +23,7 @@ set(PROJECT_SOURCES
     # Main UI
     main.cpp
     mainwindow.cpp mainwindow.h mainwindow.ui
+    welcomewidget.cpp welcomewidget.h
     
     # Chart and Indicators
     klinewidget.cpp klinewidget.h
