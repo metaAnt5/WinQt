@@ -62,9 +62,10 @@ void SimWindow::setupUi()
 
     m_readerCombo = new QComboBox;
     m_readerCombo->addItem(QStringLiteral("通用 CSV 格式"), QVariant::fromValue(0));
-    m_readerCombo->addItem(QStringLiteral("福汇 FXCM 格式"), QVariant::fromValue(1));
-    m_readerCombo->addItem(QStringLiteral("MT4 CSV 格式"), QVariant::fromValue(2));
-    m_readerCombo->addItem(QStringLiteral("文华财经 WH 格式"), QVariant::fromValue(3));
+    m_readerCombo->addItem(QStringLiteral("东方财富 格式"), QVariant::fromValue(1));
+    m_readerCombo->addItem(QStringLiteral("福汇 FXCM 格式"), QVariant::fromValue(2));
+    m_readerCombo->addItem(QStringLiteral("MT4 CSV 格式"), QVariant::fromValue(3));
+    m_readerCombo->addItem(QStringLiteral("文华财经 WH 格式"), QVariant::fromValue(4));
     m_readerCombo->setCurrentIndex(0);
     ctrlLayout->addWidget(m_readerCombo);
 
@@ -208,12 +209,15 @@ void SimWindow::onOpenFile()
         GenericCsvReader reader;
         ok = reader.readFile(file, data);
     } else if (readerIdx == 1) {
-        FxcmCsvReader reader;
+        EastMoneyCsvReader reader;
         ok = reader.readFile(file, data);
     } else if (readerIdx == 2) {
-        Mt4CsvReader reader;
+        FxcmCsvReader reader;
         ok = reader.readFile(file, data);
     } else if (readerIdx == 3) {
+        Mt4CsvReader reader;
+        ok = reader.readFile(file, data);
+    } else if (readerIdx == 4) {
         WhCsvReader reader;
         ok = reader.readFile(file, data);
     }

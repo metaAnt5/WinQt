@@ -124,6 +124,55 @@ bool GenericCsvReader::readFile(const QString &path, QVector<Candle> &out)
 }
 
 // ============================================================
+// EastMoneyCsvReader - 东方财富 CSV 格式
+// 列: 日期,开盘,最高,最低,收盘,成交量,成交额
+// 日期: "yyyy-MM-dd" 或 "yyyy-MM-dd HH:mm"
+// ============================================================
+bool EastMoneyCsvReader::readFile(const QString &path, QVector<Candle> &out)
+{
+    out.clear();
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return false;
+    QTextStream ts(&f);
+
+    bool isFirst = true;
+    while (!ts.atEnd()) {
+        QString line = ts.readLine().trimmed();
+        if (line.isEmpty()) continue;
+        QStringList parts = line.split(',');
+        if (parts.size() < 6) continue;
+        if (isFirst) {
+            isFirst = false;
+            bool isNum; parts[0].toDouble(&isNum);
+            if (!isNum) continue;
+        }
+        for (int i = 0; i < parts.size(); ++i) parts[i] = parts[i].trimmed();
+
+        Candle c;
+        bool ok;
+        // 东方财富: 日期,开盘,最高,最低,收盘,成交量[,成交额]
+        // 日期可能是 "yyyy-MM-dd" (日线) 或 "yyyy-MM-dd HH:mm" (分钟线)
+        if (parts[0].contains(' ')) {
+            c.date = QDateTime::fromString(parts[0], "yyyy-MM-dd HH:mm");
+            if (!c.date.isValid())
+                c.date = QDateTime::fromString(parts[0], "yyyy-MM-dd H:mm");
+        } else {
+            QDate d = QDate::fromString(parts[0], "yyyy-MM-dd");
+            if (d.isValid()) c.date = QDateTime(d, QTime(0, 0));
+        }
+        c.open  = parts[1].toDouble(&ok); if (!ok) continue;
+        c.high  = parts[2].toDouble(&ok); if (!ok) continue;
+        c.low   = parts[3].toDouble(&ok); if (!ok) continue;
+        c.close = parts[4].toDouble(&ok); if (!ok) continue;
+        c.volume = parts[5].toDouble(&ok);
+        if (!c.date.isValid()) continue;
+        out.append(c);
+    }
+    f.close();
+    return !out.isEmpty();
+}
+
+// ============================================================
 // FxcmCsvReader - 福汇 FXCM 格式
 // 格式: Date/Time,Open,High,Low,Close,Volume
 // 时间: "yyyy.MM.dd HH:mm:ss"

@@ -56,3 +56,14 @@ public:
     QString name() const override { return QStringLiteral("文华财经 WH 格式"); }
     bool readFile(const QString &path, QVector<Candle> &out) override;
 };
+
+// ------------------------------------------------------------
+// 东方财富 CSV 格式读取器
+// 列: 日期,开盘,最高,最低,收盘,成交量,成交额
+// 日期格式: "yyyy-MM-dd" 或 "yyyy-MM-dd HH:mm"
+// ------------------------------------------------------------
+class EastMoneyCsvReader : public SimReader {
+public:
+    QString name() const override { return QStringLiteral("东方财富 格式"); }
+    bool readFile(const QString &path, QVector<Candle> &out) override;
+};
