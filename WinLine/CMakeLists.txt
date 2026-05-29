@@ -35,7 +35,6 @@ set(PROJECT_SOURCES
     csvloader.cpp csvloader.h
     dataprovider.cpp dataprovider.h
     fhdataprovider.cpp fhdataprovider.h
-    cryptodataprovider.cpp cryptodataprovider.h
     providerfactory.cpp providerfactory.h
     marketsconfig.cpp marketsconfig.h
     dataloader.cpp dataloader.h
@@ -44,7 +43,6 @@ set(PROJECT_SOURCES
     apppaths.cpp apppaths.h
     clickfilter.cpp clickfilter.h
     shapedialog.cpp shapedialog.h shapedialog.ui
-    logger.cpp logger.h
     
     # NetCore RPC Client
     mt4rpc/KBarRpcService.cpp mt4rpc/KBarRpcService.h
