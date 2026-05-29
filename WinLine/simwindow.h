@@ -11,6 +11,7 @@ class QLabel;
 class QStackedWidget;
 class QSplitter;
 class QTextEdit;
+class QToolBar;
 class VolumeWidget;
 class IndicatorWidget;
 class MacdWidget;
@@ -50,6 +51,8 @@ private:
 
     // 图表组件（复用）
     KLineWidget *m_kline;
+    QToolBar *m_drawToolbar;
+
     VolumeWidget *m_vol;
     IndicatorWidget *m_ind;
     MacdWidget *m_macd;

@@ -73,7 +73,7 @@ void KLineWidget::hideLoading()
     }
 }
 
-// simplified helper: distance from point to segment
+// helper: distance from point to segment (bounded between endpoints)
 static double pointSegDist(const QPointF &p, const QPointF &a, const QPointF &b){
     double dx = b.x() - a.x();
     double dy = b.y() - a.y();
@@ -84,12 +84,6 @@ static double pointSegDist(const QPointF &p, const QPointF &a, const QPointF &b)
     double projx = a.x() + t * dx;
     double projy = a.y() + t * dy;
     return qSqrt((p.x()-projx)*(p.x()-projx) + (p.y()-projy)*(p.y()-projy));
-}
-
-static int hitTestEndpoint(const KLineWidget::Shape &s, const QPointF &pt, qreal tol = 6.0) {
-    if (qSqrt((s.p1.x()-pt.x())*(s.p1.x()-pt.x()) + (s.p1.y()-pt.y())*(s.p1.y()-pt.y())) <= tol) return 1;
-    if (qSqrt((s.p2.x()-pt.x())*(s.p2.x()-pt.x()) + (s.p2.y()-pt.y())*(s.p2.y()-pt.y())) <= tol) return 2;
-    return 0;
 }
 
 // helper: intersection of two lines (p1-p2) and (q1-q2). Returns true if not parallel and sets out to intersection point.
@@ -272,39 +266,63 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
         }
     }
 
-    // Drawing tool handling
+    // Drawing tool handling — 没数据时不处理画图操作
     if (m_toolMode != Tool_None) {
+        if (m_data.isEmpty()) {
+            m_toolMode = Tool_None;
+            setCursor(Qt::ArrowCursor);
+            update();
+            return;
+        }
         if (event->button() == Qt::LeftButton) {
             // ensure cross cursor remains while drawing
             setCursor(Qt::CrossCursor);
             QPointF pt = event->pos();
-            // endpoint hit
-            for (int i = 0; i < m_shapes.size(); ++i) {
-                int hit = hitTestEndpoint(m_shapes[i], pt);
-                if (hit) {
-                    m_selectedShapeIndex = i;
-                    m_draggingEndpoint = hit;
-                    m_movingShape = false;
-                    m_drawing = false;
-                    m_lastMousePos = event->pos();
-                    update();
-                    return;
-                }
-            }
-            // whole-shape hit
+            // try to hit existing shape endpoints or lines first (for dragging)
+            int clickedIdx = -1;
+            int dragEndpoint = 0;
+            double minDist = 1e9;
+
             for (int i = 0; i < m_shapes.size(); ++i) {
                 const Shape &s = m_shapes[i];
-                if (pointSegDist(pt, s.p1, s.p2) < 6.0) {
-                    m_selectedShapeIndex = i;
-                    m_movingShape = true;
-                    m_draggingEndpoint = 0;
-                    m_lastMousePos = event->pos();
-                    update();
-                    return;
+                QPointF screenP1, screenP2;
+                dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
+                dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
+
+                // check endpoint proximity
+                double dist1 = qSqrt((screenP1.x() - pt.x())*(screenP1.x() - pt.x()) + (screenP1.y() - pt.y())*(screenP1.y() - pt.y()));
+                double dist2 = qSqrt((screenP2.x() - pt.x())*(screenP2.x() - pt.x()) + (screenP2.y() - pt.y())*(screenP2.y() - pt.y()));
+
+                if (dist1 < minDist && dist1 <= 10.0) { minDist = dist1; clickedIdx = i; dragEndpoint = 1; }
+                if (dist2 < minDist && dist2 <= 10.0) { minDist = dist2; clickedIdx = i; dragEndpoint = 2; }
+
+                // check line proximity
+                if (dragEndpoint == 0) {
+                    double lineDist = 1e9;
+                    if (s.type == Shape_Line) lineDist = pointToLineDist(pt, screenP1, screenP2);
+                    else if (s.type == Shape_Trend) lineDist = pointToRayDist(pt, screenP1, screenP2);
+                    else lineDist = pointToLineDist(pt, screenP1, screenP2);
+                    if (lineDist < minDist && lineDist <= 10.0) {
+                        minDist = lineDist; clickedIdx = i; dragEndpoint = 0;
+                    }
                 }
             }
+
+            if (clickedIdx >= 0) {
+                m_selectedShapeIndex = clickedIdx;
+                m_draggingEndpoint = dragEndpoint;
+                m_movingShape = (dragEndpoint == 0);
+                m_drawing = false;
+                m_lastMousePos = event->pos();
+                update();
+                return;
+            }
+
             // start new shape: convert screen coord to data coord
-            Shape ns; ns.type = (ShapeType)(m_toolMode - 1); ns.p1 = pt; ns.p2 = pt; ns.selected = true;
+            Shape ns;
+            // map ToolMode to ShapeType: Tool_None->none, Tool_Line->Shape_Line, ...
+            ns.type = (ShapeType)(m_toolMode - 1);
+            ns.selected = true;
             ns.text.clear();
             ns.id = m_nextShapeId++;
             ns.name = QString("shape_%1").arg(ns.id);
@@ -312,16 +330,43 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             // convert screen to data coordinates
             screenToDataCoord(pt, ns.candleIdx1, ns.price1);
             ns.candleIdx2 = ns.candleIdx1; ns.price2 = ns.price1;
-            
+
+            // For trade shapes, snap to candle price and record trade info
+            if (ns.type == Shape_TradeBuy || ns.type == Shape_TradeSell ||
+                ns.type == Shape_TradeShort || ns.type == Shape_TradeCover) {
+                int idx = ns.candleIdx1;
+                if (idx >= 0 && idx < m_data.size()) {
+                    double tradePrice = m_data[idx].close;     // 默认取收盘价
+                    ns.price1 = tradePrice;
+                    ns.price2 = tradePrice;
+                    ns.tradePrice = tradePrice;
+                    ns.tradeTime = m_data[idx].date;
+                    ns.quantity = 1;
+                    ns.profit = 0.0;
+                    // 设置默认名称
+                    if (ns.type == Shape_TradeBuy) ns.name = QStringLiteral("做多买入");
+                    else if (ns.type == Shape_TradeSell) ns.name = QStringLiteral("做多卖出");
+                    else if (ns.type == Shape_TradeShort) ns.name = QStringLiteral("做空卖出");
+                    else if (ns.type == Shape_TradeCover) ns.name = QStringLiteral("做空买入");
+                    ns.text = ns.name;
+                }
+                m_drawing = false;
+            }
+            // For horizontal line, p2 has same price but different candle index
+            else if (ns.type == Shape_HLine || ns.type == Shape_VLine) {
+                // p1 and p2 at same position for now, user can drag to define
+                m_drawing = true;
+                m_draggingEndpoint = 2;
+            }
             // For text shapes, immediately open the dialog to set text and color
-            if (ns.type == Shape_Text) {
+            else if (ns.type == Shape_Text) {
                 ShapeDialog dlg(this);
                 dlg.setShapeName(ns.name);
                 dlg.setShapeColor(ns.color);
                 if (dlg.exec() == QDialog::Accepted) {
                     ns.name = dlg.getShapeName();
                     ns.color = dlg.getShapeColor();
-                    ns.text = ns.name; // Use name as text content
+                    ns.text = ns.name;
                 } else {
                     return; // Cancel, don't create the shape
                 }
@@ -330,7 +375,7 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 m_drawing = true;
                 m_draggingEndpoint = 2;
             }
-            
+
             m_shapes.append(ns);
             m_selectedShapeIndex = m_shapes.size() - 1;
             m_lastMousePos = event->pos();
@@ -373,29 +418,30 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             Shape &s = m_shapes[m_selectedShapeIndex];
             if (m_draggingEndpoint == 1) {
                 screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
-                s.p1 = event->pos();
                 update();
                 return;
             }
             if (m_draggingEndpoint == 2) {
                 screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
-                s.p2 = event->pos();
                 update();
                 return;
             }
             if (m_movingShape && (event->buttons() & Qt::LeftButton)) {
-                QPoint delta = event->pos() - m_lastMousePos;
-                s.p1 += delta; s.p2 += delta;
-                // update data coords too
-                screenToDataCoord(s.p1, s.candleIdx1, s.price1);
-                screenToDataCoord(s.p2, s.candleIdx2, s.price2);
+                QPointF oldP1, oldP2;
+                dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
+                dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
+                QPointF delta = event->pos() - oldP1;
+                // apply delta back to data coords
+                QPointF newP1 = oldP1 + delta;
+                QPointF newP2 = oldP2 + delta;
+                screenToDataCoord(newP1, s.candleIdx1, s.price1);
+                screenToDataCoord(newP2, s.candleIdx2, s.price2);
                 m_lastMousePos = event->pos();
                 update();
                 return;
             }
             if (m_drawing) {
                 screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
-                s.p2 = event->pos();
                 update();
                 return;
             }
@@ -500,6 +546,12 @@ void KLineWidget::mouseReleaseEvent(QMouseEvent *event)
 
 void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
+    // 没数据时不处理双击（禁止十字交叉线）
+    if (m_data.isEmpty()) {
+        m_crosshairVisible = false;
+        update();
+        return;
+    }
     QPointF pt = event->pos();
     int hitIndex = -1;
 
@@ -788,15 +840,117 @@ void KLineWidget::paintEvent(QPaintEvent *event)
                 p.drawLine(screenP1, bestPt);
             }
         } else if (s.type == Shape_GestureUp) {
+            // 画从 p1 到 p2 的线段，终点画三角形箭头
             p.drawLine(screenP1, screenP2);
-            QPointF h = screenP2 - screenP1; h = QPointF(-h.y(), h.x());
-            p.drawLine(screenP2, screenP2 - h*0.2);
-            p.drawLine(screenP2, screenP2 + h*0.2);
+            // 计算箭头方向（从 p1 指向 p2）
+            double angle = qAtan2(screenP2.y() - screenP1.y(), screenP2.x() - screenP1.x());
+            double arrowLen = 10.0;
+            double arrowAngle = 0.5; // ~28度
+            QPointF arrowP1(screenP2.x() - arrowLen * qCos(angle - arrowAngle),
+                           screenP2.y() - arrowLen * qSin(angle - arrowAngle));
+            QPointF arrowP2(screenP2.x() - arrowLen * qCos(angle + arrowAngle),
+                           screenP2.y() - arrowLen * qSin(angle + arrowAngle));
+            // 填充箭头三角形
+            QPolygonF arrowHead;
+            arrowHead << screenP2 << arrowP1 << arrowP2;
+            p.setBrush(sp.color());
+            p.drawPolygon(arrowHead);
         } else if (s.type == Shape_GestureDown) {
+            // 画从 p1 到 p2 的线段，终点画三角形箭头（向下箭头）
             p.drawLine(screenP1, screenP2);
-            QPointF h = screenP2 - screenP1; h = QPointF(-h.y(), h.x());
-            p.drawLine(screenP1, screenP1 - h*0.2);
-            p.drawLine(screenP1, screenP1 + h*0.2);
+            double angle = qAtan2(screenP2.y() - screenP1.y(), screenP2.x() - screenP1.x());
+            double arrowLen = 10.0;
+            double arrowAngle = 0.5;
+            QPointF arrowP1(screenP2.x() - arrowLen * qCos(angle - arrowAngle),
+                           screenP2.y() - arrowLen * qSin(angle - arrowAngle));
+            QPointF arrowP2(screenP2.x() - arrowLen * qCos(angle + arrowAngle),
+                           screenP2.y() - arrowLen * qSin(angle + arrowAngle));
+            QPolygonF arrowHead;
+            arrowHead << screenP2 << arrowP1 << arrowP2;
+            p.setBrush(sp.color());
+            p.drawPolygon(arrowHead);
+        } else if (s.type == Shape_HLine) {
+            // 水平线：从主图左边缘到右边缘
+            QRect mr = mainChartRect();
+            double y = screenP1.y();
+            p.drawLine(mr.left(), (int)y, mr.right(), (int)y);
+        } else if (s.type == Shape_VLine) {
+            // 垂直线：从主图上边缘到下边缘
+            QRect mr = mainChartRect();
+            double x = screenP1.x();
+            p.drawLine((int)x, mr.top(), (int)x, mr.bottom());
+        } else if (s.type == Shape_TradeBuy || s.type == Shape_TradeCover) {
+            // 买入/平仓标记 (K线下方绿色向上箭头)
+            QColor tradeColor = (s.type == Shape_TradeBuy) ? QColor(0, 220, 0) : QColor(220, 100, 0);
+            QString label = (s.type == Shape_TradeBuy) ? QStringLiteral("B") : QStringLiteral("C");
+            QString sideName = (s.type == Shape_TradeBuy) ? QStringLiteral("做多买入") : QStringLiteral("做空买入");
+            
+            // 画向上箭头
+            double arrowSize = 8;
+            qreal cx = screenP1.x();
+            qreal baseY = screenP1.y() + 6; // K线下方
+            QPolygonF arrowHead;
+            arrowHead << QPointF(cx, baseY - arrowSize)
+                      << QPointF(cx - arrowSize * 0.6, baseY)
+                      << QPointF(cx + arrowSize * 0.6, baseY);
+            p.setBrush(tradeColor);
+            p.setPen(QPen(tradeColor, 1));
+            p.drawPolygon(arrowHead);
+            
+            // 画标签背景
+            QString tradeText = QString("%1 %2").arg(label).arg(s.tradePrice, 0, 'f', 2);
+            if (s.quantity > 1) tradeText += QString(" x%1").arg(s.quantity);
+            if (s.type == Shape_TradeCover && s.profit != 0.0) {
+                tradeText += QString(" %1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
+            }
+            p.setFont(QFont("Arial", 9, QFont::Bold));
+            QFontMetrics fm(p.font());
+            int tw = fm.horizontalAdvance(tradeText) + 8;
+            int th = fm.height() + 4;
+            QRectF labelRect(cx - tw/2, baseY + 2, tw, th);
+            p.setBrush(QColor(0, 0, 0, 200));
+            p.setPen(QPen(tradeColor, 1));
+            p.drawRoundedRect(labelRect, 3, 3);
+            
+            // 画文字
+            p.setPen(tradeColor);
+            p.drawText(labelRect, Qt::AlignCenter, tradeText);
+        } else if (s.type == Shape_TradeSell || s.type == Shape_TradeShort) {
+            // 卖出/做空标记 (K线上方红色向下箭头)
+            QColor tradeColor = (s.type == Shape_TradeSell) ? QColor(0, 220, 0) : QColor(220, 0, 0);
+            QString label = (s.type == Shape_TradeSell) ? QStringLiteral("S") : QStringLiteral("SS");
+            QString sideName = (s.type == Shape_TradeSell) ? QStringLiteral("做多卖出") : QStringLiteral("做空卖出");
+            
+            // 画向下箭头
+            double arrowSize = 8;
+            qreal cx = screenP1.x();
+            qreal baseY = screenP1.y() - 6; // K线上方
+            QPolygonF arrowHead;
+            arrowHead << QPointF(cx, baseY + arrowSize)
+                      << QPointF(cx - arrowSize * 0.6, baseY)
+                      << QPointF(cx + arrowSize * 0.6, baseY);
+            p.setBrush(tradeColor);
+            p.setPen(QPen(tradeColor, 1));
+            p.drawPolygon(arrowHead);
+            
+            // 画标签背景
+            QString tradeText = QString("%1 %2").arg(label).arg(s.tradePrice, 0, 'f', 2);
+            if (s.quantity > 1) tradeText += QString(" x%1").arg(s.quantity);
+            if (s.type == Shape_TradeSell && s.profit != 0.0) {
+                tradeText += QString(" %1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
+            }
+            p.setFont(QFont("Arial", 9, QFont::Bold));
+            QFontMetrics fm(p.font());
+            int tw = fm.horizontalAdvance(tradeText) + 8;
+            int th = fm.height() + 4;
+            QRectF labelRect(cx - tw/2, baseY - th - 2, tw, th);
+            p.setBrush(QColor(0, 0, 0, 200));
+            p.setPen(QPen(tradeColor, 1));
+            p.drawRoundedRect(labelRect, 3, 3);
+            
+            // 画文字
+            p.setPen(tradeColor);
+            p.drawText(labelRect, Qt::AlignCenter, tradeText);
         } else if (s.type == Shape_Text) {
             // draw text with point - use p1 as the center point
             int textW = 160;
@@ -1006,6 +1160,12 @@ void KLineWidget::editShapeProperties(int index)
 // helper: convert screen coord to data coord (candle index & price)
 void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, double &price)
 {
+    // 没数据时返回默认值，防止 qBound 崩
+    if (m_data.isEmpty()) {
+        candleIdx = 0;
+        price = 0.0;
+        return;
+    }
     QRect mr = mainChartRect();
     double totalPer = (m_candleWidth * m_scale) + m_gap;
 

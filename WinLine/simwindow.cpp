@@ -23,6 +23,13 @@
 #include <QFileInfo>
 #include <QStyle>
 #include <QApplication>
+#include <QPainter>
+#include <QPixmap>
+#include <QIcon>
+#include <QPen>
+#include <QPolygonF>
+#include <QFont>
+#include <functional>
 
 SimWindow::SimWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -137,6 +144,135 @@ void SimWindow::setupUi()
     m_logText->setMaximumHeight(120);
     m_logText->setPlainText(QStringLiteral("模拟回放日志\n"));
     mainLayout->addWidget(m_logText);
+
+    // ---- 画图工具栏 ----
+    auto makeIcon = [](std::function<void(QPainter&)> draw) -> QIcon {
+        QPixmap px(24, 24);
+        px.fill(Qt::transparent);
+        QPainter p(&px);
+        p.setRenderHint(QPainter::Antialiasing);
+        draw(p);
+        p.end();
+        return QIcon(px);
+    };
+
+    // Normal: 鼠标指针
+    QIcon iconNormal = makeIcon([](QPainter &p){
+        p.setPen(QPen(Qt::white, 1.5));
+        p.drawLine(4,4, 4,20);
+        p.drawLine(4,4, 16,12);
+        p.drawLine(4,12, 12,16);
+        p.drawLine(16,12, 20,20);
+    });
+
+    // Line: 无限延长线
+    QIcon iconLine = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(200,200,50), 2));
+        p.drawLine(3,21, 21,3);
+        p.setBrush(QColor(200,200,50));
+        p.drawEllipse(QPoint(3,21), 2,2);
+        p.drawEllipse(QPoint(21,3), 2,2);
+    });
+
+    // Trend: 射线
+    QIcon iconTrend = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(100,200,255), 2));
+        p.drawLine(4,20, 18,6);
+        p.drawLine(18,6, 12,6);
+        p.drawLine(18,6, 18,12);
+        p.setBrush(QColor(100,200,255));
+        p.drawEllipse(QPoint(4,20), 2,2);
+    });
+
+    // HLine: 水平线
+    QIcon iconHLine = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(200,200,255), 2));
+        p.drawLine(2,12, 22,12);
+        p.drawLine(2,10, 2,14);
+        p.drawLine(22,10, 22,14);
+    });
+
+    // VLine: 垂直线
+    QIcon iconVLine = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(200,200,255), 2));
+        p.drawLine(12,2, 12,22);
+        p.drawLine(10,2, 14,2);
+        p.drawLine(10,22, 14,22);
+    });
+
+    // Text: 字母 A
+    QIcon iconText = makeIcon([](QPainter &p){
+        p.setPen(QPen(Qt::white, 2));
+        QFont f = p.font(); f.setPixelSize(18); f.setBold(true);
+        p.setFont(f);
+        p.drawText(QRect(0,0,24,24), Qt::AlignCenter, "A");
+    });
+
+    // 上箭头
+    QIcon iconUp = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(100,255,100), 2));
+        p.setBrush(QColor(100,255,100));
+        QPolygonF arrow;
+        arrow << QPointF(12,2) << QPointF(4,12) << QPointF(9,12)
+              << QPointF(9,22) << QPointF(15,22) << QPointF(15,12)
+              << QPointF(20,12);
+        p.drawPolygon(arrow);
+    });
+
+    // 下箭头
+    QIcon iconDown = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(255,100,100), 2));
+        p.setBrush(QColor(255,100,100));
+        QPolygonF arrow;
+        arrow << QPointF(12,22) << QPointF(4,12) << QPointF(9,12)
+              << QPointF(9,2) << QPointF(15,2) << QPointF(15,12)
+              << QPointF(20,12);
+        p.drawPolygon(arrow);
+    });
+
+    // Delete: 红叉
+    QIcon iconDelete = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(255,80,80), 3));
+        p.drawLine(4,4, 20,20);
+        p.drawLine(20,4, 4,20);
+    });
+
+    // Clear: 垃圾桶
+    QIcon iconClear = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(200,200,200), 1.5));
+        p.drawRect(5,9, 14,13);
+        p.drawLine(3,9, 21,9);
+        p.drawLine(9,9, 9,5);
+        p.drawLine(15,9, 15,5);
+        p.drawLine(9,5, 15,5);
+        p.drawLine(8,13, 16,13);
+        p.drawLine(8,17, 16,17);
+    });
+
+    m_drawToolbar = new QToolBar(this);
+    QAction *aNormal = m_drawToolbar->addAction(iconNormal, "");
+    QAction *aLine  = m_drawToolbar->addAction(iconLine, "");
+    QAction *aTrend = m_drawToolbar->addAction(iconTrend, "");
+    QAction *aHLine = m_drawToolbar->addAction(iconHLine, "");
+    QAction *aVLine = m_drawToolbar->addAction(iconVLine, "");
+    QAction *aText  = m_drawToolbar->addAction(iconText, "");
+    QAction *aUp    = m_drawToolbar->addAction(iconUp, "");
+    QAction *aDown  = m_drawToolbar->addAction(iconDown, "");
+    QAction *aDelete= m_drawToolbar->addAction(iconDelete, "");
+    QAction *aClear = m_drawToolbar->addAction(iconClear, "");
+    addToolBar(m_drawToolbar);
+
+    // 只连到 m_kline，不碰任何其他窗口的信号
+    QObject::connect(aNormal, &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_None); });
+    QObject::connect(aLine,   &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_Line); });
+    QObject::connect(aTrend,  &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_Trend); });
+    QObject::connect(aHLine,  &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_HLine); });
+    QObject::connect(aVLine,  &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_VLine); });
+    QObject::connect(aText,   &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_Text); });
+    QObject::connect(aUp,     &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_GestureUp); });
+    QObject::connect(aDown,   &QAction::triggered, [this](){ m_kline->setToolMode(KLineWidget::Tool_GestureDown); });
+    QObject::connect(aDelete, &QAction::triggered, [this](){ m_kline->deleteSelectedShape(); });
+    QObject::connect(aClear,  &QAction::triggered, [this](){ m_kline->clearShapes(); });
 
     // ---- 状态栏 ----
     statusBar()->showMessage(QStringLiteral("就绪 - 请打开 CSV 文件"));

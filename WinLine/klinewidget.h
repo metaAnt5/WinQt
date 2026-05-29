@@ -30,12 +30,12 @@ public:
     void setTimeframe(Timeframe tf);
 
     // Drawing tools
-    enum ToolMode { Tool_None = 0, Tool_Line, Tool_Trend, Tool_GestureUp, Tool_GestureDown, Tool_Text };
-    enum ShapeType { Shape_Line = 0, Shape_Trend, Shape_GestureUp, Shape_GestureDown, Shape_Text };
+    enum ToolMode { Tool_None = 0, Tool_Line, Tool_Trend, Tool_GestureUp, Tool_GestureDown, Tool_Text, Tool_HLine, Tool_VLine,
+                    Tool_TradeBuy, Tool_TradeSell, Tool_TradeShort, Tool_TradeCover };
+    enum ShapeType { Shape_Line = 0, Shape_Trend, Shape_GestureUp, Shape_GestureDown, Shape_Text, Shape_HLine, Shape_VLine,
+                     Shape_TradeBuy, Shape_TradeSell, Shape_TradeShort, Shape_TradeCover };
     struct Shape {
         ShapeType type;
-        QPointF p1;     // screen coords (for temp use during drawing)
-        QPointF p2;     // screen coords (for temp use during drawing)
         QString text;
         bool selected;
         QString name;   // user-assigned name
@@ -46,9 +46,16 @@ public:
         double price1;  // price for p1
         int candleIdx2; // candle index for p2
         double price2;  // price for p2
+        // trade-specific fields
+        double tradePrice = 0.0;   // 成交价
+        QDateTime tradeTime;       // 成交时间
+        int quantity = 1;          // 数量
+        double profit = 0.0;       // 平仓盈亏
     };
 
     void setToolMode(ToolMode m);
+    const QVector<Shape>& shapes() const { return m_shapes; }
+    void setShapes(const QVector<Shape> &shapes) { m_shapes = shapes; m_selectedShapeIndex = -1; update(); }
     void deleteSelectedShape();
     void clearShapes();
 
@@ -159,5 +166,3 @@ private:
 
     void updateRealtimeLabel();
 };
-
-

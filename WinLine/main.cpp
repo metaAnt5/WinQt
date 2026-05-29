@@ -450,10 +450,27 @@ int main(int argc, char *argv[])
         p.drawLine(8,17, 16,17);
     });
 
+    // HLine: 水平线
+    QIcon iconHLine = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(200,200,255), 2));
+        p.drawLine(2,12, 22,12);
+        p.drawLine(2,10, 2,14);
+        p.drawLine(22,10, 22,14);
+    });
+    // VLine: 垂直线
+    QIcon iconVLine = makeIcon([](QPainter &p){
+        p.setPen(QPen(QColor(200,200,255), 2));
+        p.drawLine(12,2, 12,22);
+        p.drawLine(10,2, 14,2);
+        p.drawLine(10,22, 14,22);
+    });
+
     QToolBar *tb = new QToolBar(&mainWindow);
     QAction *aNormal = tb->addAction(iconNormal, "");
     QAction *aLine = tb->addAction(iconLine, "");
     QAction *aTrend = tb->addAction(iconTrend, "");
+    QAction *aHLine = tb->addAction(iconHLine, "");
+    QAction *aVLine = tb->addAction(iconVLine, "");
     QAction *aText = tb->addAction(iconText, "");
     QAction *aUp = tb->addAction(iconUp, "");
     QAction *aDown = tb->addAction(iconDown, "");
@@ -466,6 +483,8 @@ int main(int argc, char *argv[])
     QObject::connect(aTrend, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_Trend); });
     QObject::connect(aUp, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_GestureUp); });
     QObject::connect(aDown, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_GestureDown); });
+    QObject::connect(aHLine, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_HLine); });
+    QObject::connect(aVLine, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_VLine); });
     QObject::connect(aText, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_Text); });
     QObject::connect(aDelete, &QAction::triggered, [k](){ k->deleteSelectedShape(); });
     QObject::connect(aClear, &QAction::triggered, [k](){ k->clearShapes(); });
