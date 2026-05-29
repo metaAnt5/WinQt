@@ -22,9 +22,6 @@ public:
     explicit SimWindow(QWidget *parent = nullptr);
     ~SimWindow();
 
-protected:
-    void closeEvent(QCloseEvent *event) override;
-
 private slots:
     void onOpenFile();
     void onPlayPause();
@@ -41,14 +38,6 @@ private:
     void setupUi();
     void connectSignals();
     void resetSimulation();
-
-    // Annotation persistence
-    void loadAnnotations(const QString &csvFilePath);
-    void saveTrades();
-    void saveShapes();
-    void saveAll();
-    QString m_tradesFilePath;   // *.trades.json
-    QString m_shapesFilePath;   // *.shapes.json
 
     // UI 控件
     QComboBox *m_readerCombo;
