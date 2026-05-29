@@ -1,4 +1,5 @@
 #include "indicatorwidget.h"
+#include "chartconfig.h"
 #include <QPainter>
 #include <QtMath>
 #include <QPainterPath>
@@ -87,7 +88,11 @@ void IndicatorWidget::paintEvent(QPaintEvent *event)
     // scale KDJ to 0..100 using padded rect
     auto valToY = [&](double v){ double rratio = (v - 0.0) / 100.0; return rr.bottom() - rratio * rr.height(); };
 
-    double totalPer = qMax(2.0, (rr.width() / (double)qMax(1, count)));
+    // 使用主图的 totalPer 和 mainRect.left() 确保 K 棒中心对齐
+    double totalPer = ChartConfig::totalPer();
+    int mainLeft = ChartConfig::mainRect().left();
+    if (totalPer <= 0) totalPer = qMax(2.0, (rr.width() / (double)qMax(1, count)));
+    if (mainLeft <= 0) mainLeft = rr.left();
 
     // draw horizontal lines at 20/80
     p.setPen(QPen(Qt::lightGray));
@@ -99,7 +104,7 @@ void IndicatorWidget::paintEvent(QPaintEvent *event)
     QPainterPath pk, pd, pj;
     for (int i = 0; i < count; ++i) {
         int idx = start + i;
-        double x = rr.left() + i * totalPer + totalPer/2.0;
+        double x = mainLeft + (idx - ChartConfig::startIndex()) * totalPer + totalPer / 2.0;
         double yk = valToY(m_k[idx]);
         double yd = valToY(m_d[idx]);
         double yj = valToY(m_j[idx]);
@@ -113,10 +118,9 @@ void IndicatorWidget::paintEvent(QPaintEvent *event)
     p.setPen(penD); p.drawPath(pd);
     p.setPen(penJ); p.drawPath(pj);
 
-    // draw crosshair vertical line if index in view
+    // draw crosshair vertical line — 使用主图的 candleCenterX 确保与主图精确对齐
     if (m_crosshairIndex >= start && m_crosshairIndex < start + count) {
-        int idx = m_crosshairIndex - start;
-        double x = rr.left() + idx * totalPer + totalPer/2.0;
+        double x = static_cast<double>(ChartConfig::candleCenterX(m_crosshairIndex));
         p.setPen(QPen(Qt::magenta, 1.5, Qt::DashLine));
         p.drawLine(int(x), rr.top(), int(x), rr.bottom());
         // draw marker dot

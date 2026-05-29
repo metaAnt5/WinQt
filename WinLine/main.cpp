@@ -226,7 +226,73 @@ int main(int argc, char *argv[])
     // find KLineWidget and create DataLoader
     KLineWidget *klineWidget = mainWindow.findChild<KLineWidget*>();
     DataLoader *loader = nullptr;
-    if (klineWidget) loader = new DataLoader(klineWidget, &mainWindow);
+    if (klineWidget) {
+        loader = new DataLoader(klineWidget, &mainWindow);
+        // 启动 RPC 客户端
+        if (loader->startRpcClient()) {
+            logText->append(QStringLiteral("KBarRPC client initialized, waiting for data request... (127.0.0.1:9888)"));
+        } else {
+            logText->append(QStringLiteral("KBarRPC client failed to start"));
+        }
+
+        // ================================================================
+        // 连接 DataLoader 信号，实现 Loading 覆盖层和推送数据更新
+        // ================================================================
+
+        // 加载开始 -> 显示 Loading
+        QObject::connect(loader, &DataLoader::loadStarted, klineWidget, [klineWidget](const QString &symbol, int tf) {
+            klineWidget->showLoading(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(tf));
+        });
+
+        // 本地数据加载完成 -> 先隐藏 Loading（如果 RPC 还未返回，也不阻塞界面）
+        QObject::connect(loader, &DataLoader::localDataLoaded, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+
+        // 加载失败 -> 隐藏 Loading
+        QObject::connect(loader, &DataLoader::loadFailed, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+
+        // RPC 数据加载完成 -> 隐藏 Loading
+        QObject::connect(loader, &DataLoader::rpcDataLoaded, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+
+        // 加载完成 -> 隐藏 Loading
+        QObject::connect(loader, &DataLoader::loadFinished, klineWidget, [klineWidget]() {
+            klineWidget->hideLoading();
+        });
+
+        // 连接状态变化 -> 更新实时价格标签的圆点颜色
+        QObject::connect(loader, &DataLoader::connectionStatusChanged, klineWidget,
+            &KLineWidget::setConnectionStatus);
+
+        // 推送数据到达 -> 实时更新 K 线图（跨线程安全，信号会自动切换到主线程）
+        QObject::connect(loader, &DataLoader::pushDataReady, klineWidget,
+            [klineWidget, loader](const QString &symbol, int timeFrame,
+                                  uint64_t time, double open, double high,
+                                  double low, double close, double volume)
+        {
+            // 只处理当前正在显示的品种和周期
+            if (symbol != loader->currentSymbol() || timeFrame != loader->currentTimeframe()) {
+                return;
+            }
+
+            // 构造单根 Candle
+            Candle c;
+            c.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(time));
+            c.open = open;
+            c.high = high;
+            c.low = low;
+            c.close = close;
+            c.volume = volume;
+
+            // 更新 K 线图（内部判断是同根更新还是新 K 线追加）
+            klineWidget->updateRealtimeCandle(c);
+        });
+    }
+
 
     // double-click symbol loads data for currentTf and marks tree selection
     QObject::connect(tree, &QTreeWidget::itemDoubleClicked, [&mainWindow, &logText, &currentTf, &currentSymbol, &updateTitle](QTreeWidgetItem *item, int){

@@ -1,0 +1,17 @@
+# Build
+build/
+WinLine/build/
+cmake-build-*/
+
+# IDE
+.vscode/
+.idea/
+*.user
+*.pdb
+
+# Config (contains API keys/secrets)
+WinLine/config/server.json
+
+# OS
+.DS_Store
+Thumbs.db

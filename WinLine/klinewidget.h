@@ -1,10 +1,12 @@
 #pragma once
 
 #include <QWidget>
+#include <QLabel>
 #include <QVector>
 #include <QDateTime>
 #include <QString>
 #include <QColor>
+
 
 struct Candle {
     QDateTime date;
@@ -49,6 +51,10 @@ public:
     void setToolMode(ToolMode m);
     void deleteSelectedShape();
     void clearShapes();
+
+    // Loading overlay
+    void showLoading(const QString &msg = QStringLiteral("Loading..."));
+    void hideLoading();
     void editShapeProperties(int index);
     void screenToDataCoord(const QPointF &screenPt, int &candleIdx, double &price);
     void dataCoordToScreen(int candleIdx, double price, QPointF &screenPt);
@@ -61,6 +67,11 @@ public:
     int candleCenterXForIndex(int index) const;
     int indexForScreenX(int screenX) const;
     double candleBodyWidth() const;
+
+    // Realtime data update
+    void updateRealtimeCandle(const Candle &c);
+    void setSymbol(const QString &s);
+    void setConnectionStatus(bool connected);
 
 Q_SIGNALS:
     void crosshairIndexChanged(int index);
@@ -135,4 +146,18 @@ private:
 
     void emitCrosshairSignals();
     void snapCrosshairTo(const QPointF &pos);
+
+    // Loading overlay
+    QLabel *m_loadingLabel = nullptr;
+
+    // Realtime price label
+    QLabel *m_realtimeLabel = nullptr;
+    double m_lastPrice = 0;
+    double m_lastOpen = 0;
+    bool m_connected = false;
+    QString m_symbol;
+
+    void updateRealtimeLabel();
 };
+
+

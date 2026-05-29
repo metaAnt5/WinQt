@@ -10,6 +10,9 @@
 #include <QInputDialog>
 #include <QKeyEvent>
 #include <QColorDialog>
+#include <QLabel>
+#include <QVBoxLayout>
+
 
 KLineWidget::KLineWidget(QWidget *parent)
     : QWidget(parent), m_minPrice(0), m_maxPrice(0), m_scale(1.0), m_candleWidth(6.0), m_gap(2.0), m_startIndex(0), m_panning(false), m_crosshairVisible(false), m_rightPadding(80), m_timeframe(KLineWidget::TF_1m), m_baseMinutes(1)
@@ -18,6 +21,56 @@ KLineWidget::KLineWidget(QWidget *parent)
     setMinimumSize(600, 500);
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
+
+    // Loading overlay label
+    m_loadingLabel = new QLabel(this);
+    m_loadingLabel->setAlignment(Qt::AlignCenter);
+    m_loadingLabel->setStyleSheet(
+        "QLabel {"
+        "  background-color: rgba(0, 0, 0, 180);"
+        "  color: #00FFFF;"
+        "  font-size: 24px;"
+        "  font-weight: bold;"
+        "  border: 2px solid #00FFFF;"
+        "  border-radius: 8px;"
+        "  padding: 20px;"
+        "}");
+    m_loadingLabel->setText(QStringLiteral("Loading..."));
+    m_loadingLabel->setVisible(false);
+
+    // Realtime price label
+    m_realtimeLabel = new QLabel(this);
+    m_realtimeLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    m_realtimeLabel->setStyleSheet(
+        "QLabel {"
+        "  background-color: rgba(0, 0, 0, 200);"
+        "  color: #FFFFFF;"
+        "  font-size: 13px;"
+        "  font-weight: bold;"
+        "  border: 1px solid #555555;"
+        "  border-radius: 4px;"
+        "  padding: 4px 8px;"
+        "}");
+    m_realtimeLabel->setVisible(false);
+}
+
+void KLineWidget::showLoading(const QString &msg)
+{
+    if (!m_loadingLabel) return;
+    m_loadingLabel->setText(msg);
+    // Center the label in the widget
+    int w = qMin(width() * 3 / 4, 400);
+    int h = 100;
+    m_loadingLabel->setGeometry((width() - w) / 2, (height() - h) / 2, w, h);
+    m_loadingLabel->raise();
+    m_loadingLabel->setVisible(true);
+}
+
+void KLineWidget::hideLoading()
+{
+    if (m_loadingLabel) {
+        m_loadingLabel->setVisible(false);
+    }
 }
 
 // simplified helper: distance from point to segment
@@ -1223,4 +1276,106 @@ void KLineWidget::snapCrosshairTo(const QPointF &pos)
     emit crosshairIndexChanged(idx);
     emit crosshairPriceChanged(price, idx);
     emit crosshairScreenXChanged(candleCenterXForIndex(idx));
+}
+
+void KLineWidget::updateRealtimeCandle(const Candle &c)
+{
+    if (m_data.isEmpty()) {
+        m_data.append(c);
+        m_allData.append(c);
+        updateRange();
+        calculateMovingAverages();
+        emit dataAggregated(m_data);
+        update();
+        return;
+    }
+
+    // 判断是同一根 K 线更新还是新 K 线追加
+    if (c.date == m_data.last().date) {
+        // 替换最后一条
+        m_data.last() = c;
+        if (!m_allData.isEmpty() && m_allData.last().date == c.date) {
+            m_allData.last() = c;
+        } else {
+            m_allData.append(c);
+        }
+    } else if (c.date > m_data.last().date) {
+        // 追加新 K 线
+        m_data.append(c);
+        m_allData.append(c);
+        // 自动滚动到最新
+        int visCount = visibleCount();
+        if (m_startIndex + visCount < m_data.size()) {
+            m_startIndex = qMax(0, m_data.size() - visCount);
+        }
+    } else {
+        return; // 旧数据忽略
+    }
+
+    updateRange();
+    calculateMovingAverages();
+    m_lastPrice = c.close;
+    m_lastOpen = c.open;
+    updateRealtimeLabel();
+
+    emit dataAggregated(m_data);
+    emit viewportChanged(m_startIndex, visibleCount());
+    emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
+    update();
+}
+
+void KLineWidget::setSymbol(const QString &s)
+{
+    m_symbol = s;
+    updateRealtimeLabel();
+}
+
+void KLineWidget::setConnectionStatus(bool connected)
+{
+    m_connected = connected;
+    updateRealtimeLabel();
+}
+
+void KLineWidget::updateRealtimeLabel()
+{
+    if (!m_realtimeLabel) return;
+    if (m_lastPrice == 0) {
+        m_realtimeLabel->setVisible(false);
+        return;
+    }
+
+    // 构建显示文本：● ▲ 4508.02 +1.59
+    double change = m_lastPrice - m_lastOpen;
+    QString arrow;
+    QColor priceColor;
+    if (change >= 0) {
+        arrow = QStringLiteral("▲");
+        priceColor = QColor(220, 20, 60); // 红色（涨）
+    } else {
+        arrow = QStringLiteral("▼");
+        priceColor = QColor(0, 180, 0);   // 绿色（跌）
+    }
+
+    // 连接状态颜色
+    QString dotColor = m_connected ? QStringLiteral("#00FF00") : QStringLiteral("#FF0000");
+
+    QString text = QStringLiteral("<span style='color:%1;'>&#9679;</span> "
+                                  "<span style='color:%2;'>%3 %4</span> "
+                                  "<span style='color:%5;'>%6%7</span>")
+        .arg(dotColor)
+        .arg(priceColor.name())
+        .arg(arrow)
+        .arg(m_lastPrice, 0, 'f', 2)
+        .arg(priceColor.name())
+        .arg(change >= 0 ? "+" : "")
+        .arg(change, 0, 'f', 2);
+
+    m_realtimeLabel->setText(text);
+    m_realtimeLabel->adjustSize();
+    // 定位到右上角
+    int labelW = m_realtimeLabel->width();
+    int labelH = m_realtimeLabel->height();
+    m_realtimeLabel->setGeometry(width() - labelW - 10, 10, labelW, labelH);
+    m_realtimeLabel->raise();
+    m_realtimeLabel->setVisible(true);
 }

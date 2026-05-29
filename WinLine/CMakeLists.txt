@@ -6,8 +6,15 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# NetCore 库路径
+set(NETCORE_DIR "H:/NetCore")
+include_directories(${NETCORE_DIR})
+include_directories(${NETCORE_DIR}/asio-asio-1-38-0/include)
+include_directories(${NETCORE_DIR}/NetCore/3rd/openssl/include)
+
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Concurrent)
@@ -37,7 +44,14 @@ set(PROJECT_SOURCES
     clickfilter.cpp clickfilter.h
     shapedialog.cpp shapedialog.h shapedialog.ui
     logger.cpp logger.h
+    
+    # NetCore RPC Client
+    mt4rpc/KBarRpcService.cpp mt4rpc/KBarRpcService.h
+    mt4rpc/KBarRpcProtocol.h
+    mt4rpc/KBarManager.h
 )
+
+
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(WinLine
@@ -63,7 +77,8 @@ else()
     endif()
 endif()
 
-target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent)
+target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent ${NETCORE_DIR}/x64/Debug/NetCore.lib)
+
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

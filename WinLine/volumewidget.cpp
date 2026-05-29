@@ -1,4 +1,5 @@
 #include "volumewidget.h"
+#include "chartconfig.h"
 #include <QPainter>
 
 VolumeWidget::VolumeWidget(QWidget *parent) : QWidget(parent)
@@ -34,20 +35,27 @@ void VolumeWidget::paintEvent(QPaintEvent *event) {
     if (count <= 0) return;
     QRect r = rect().adjusted(40, 4, -10, -4);
     double maxVol = 0; for (int i = start; i < start+count; ++i) maxVol = qMax(maxVol, m_data[i].volume);
-    double barW = qMax(2.0, (r.width() / (double)count));
+
+    // 使用主图的 totalPer 和 mainRect.left() 确保 K 棒中心对齐
+    double totalPer = ChartConfig::totalPer();
+    int mainLeft = ChartConfig::mainRect().left();
+    int mainStart = ChartConfig::startIndex();
+    double barW = (totalPer > 0) ? totalPer : qMax(2.0, (r.width() / (double)qMax(1, count)));
+    double drawLeft = (totalPer > 0) ? static_cast<double>(mainLeft) : static_cast<double>(r.left());
+
     for (int i = 0; i < count; ++i) {
         int idx = start + i;
-        double x = r.left() + i * barW;
+        double candleCenter = drawLeft + (idx - mainStart) * totalPer + totalPer / 2.0;
+        double x = candleCenter - barW * 0.4;  // volume bar centered on candle center
         double h = (m_data[idx].volume / maxVol) * r.height();
         QRectF br(x, r.bottom()-h, barW*0.8, h);
         bool rise = m_data[idx].close >= m_data[idx].open;
         QColor color = rise ? QColor(220,20,60) : QColor(0,180,0);
         p.fillRect(br, color);
     }
-    // draw crosshair vertical
+    // draw crosshair vertical — 使用主图的 candleCenterX 确保与主图精确对齐
     if (m_crossIdx >= start && m_crossIdx < start+count) {
-        int i = m_crossIdx - start;
-        double x = r.left() + i * barW + barW/2.0;
+        double x = static_cast<double>(ChartConfig::candleCenterX(m_crossIdx));
         p.setPen(QPen(Qt::magenta, 1.5, Qt::DashLine));
         p.drawLine(int(x), r.top(), int(x), r.bottom());
     }

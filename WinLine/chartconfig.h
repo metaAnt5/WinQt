@@ -10,4 +10,7 @@ public:
     static int visibleCount();
     static double bodyWidth();
     static int rightPadding();
+
+    // 根据主图布局计算第 idx 根 K 线的中心 X 坐标，用于附图对齐
+    static int candleCenterX(int idx);
 };

@@ -1,4 +1,5 @@
 #include "macdwidget.h"
+#include "chartconfig.h"
 #include <QPainter>
 #include <QPainterPath>
 
@@ -52,10 +53,18 @@ void MacdWidget::paintEvent(QPaintEvent *event) {
     if (count<=0) return;
     QRect r = rect().adjusted(40,4,-10,-4);
     double maxV = 0; for (int i=start;i<start+count;++i) maxV = qMax(maxV, qAbs(m_hist[i]));
-    double barW = qMax(2.0, (r.width() / (double)count));
+
+    // 使用主图的 totalPer 和 mainRect.left() 确保 K 棒中心对齐
+    double totalPer = ChartConfig::totalPer();
+    int mainLeft = ChartConfig::mainRect().left();
+    int mainStart = ChartConfig::startIndex();
+    double barW = (totalPer > 0) ? totalPer : qMax(2.0, (r.width() / (double)qMax(1, count)));
+    double drawLeft = (totalPer > 0) ? static_cast<double>(mainLeft) : static_cast<double>(r.left());
+
     for (int i=0;i<count;++i) {
         int idx = start+i;
-        double x = r.left() + i*barW;
+        double candleCenter = drawLeft + (idx - mainStart) * totalPer + totalPer / 2.0;
+        double x = candleCenter - barW * 0.4;  // hist bar centered on candle center
         double h = (m_hist[idx]/maxV) * (r.height()/2.0);
         QRectF br(x, r.center().y() - (h>0?h:0), barW*0.8, qAbs(h));
         QColor col = (m_hist[idx] >= 0) ? QColor(220,20,60) : QColor(0,180,0);
@@ -65,21 +74,20 @@ void MacdWidget::paintEvent(QPaintEvent *event) {
     QPainterPath pdif, pdea;
     for (int i=0;i<count;++i) {
         int idx = start+i;
-        double x = r.left() + i*barW + barW/2.0;
+        double candleCenter = drawLeft + (idx - mainStart) * totalPer + totalPer / 2.0;
         double ydif = r.center().y() - (m_dif[idx]/maxV) * (r.height()/2.0);
         double ydea = r.center().y() - (m_dea[idx]/maxV) * (r.height()/2.0);
-        if (i==0) { pdif.moveTo(x, ydif); pdea.moveTo(x, ydea); }
-        else { pdif.lineTo(x, ydif); pdea.lineTo(x, ydea); }
+        if (i==0) { pdif.moveTo(candleCenter, ydif); pdea.moveTo(candleCenter, ydea); }
+        else { pdif.lineTo(candleCenter, ydif); pdea.lineTo(candleCenter, ydea); }
     }
     QPen penDif(Qt::yellow, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
     QPen penDea(Qt::cyan, 2.0, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
     p.setPen(penDif); p.drawPath(pdif);
     p.setPen(penDea); p.drawPath(pdea);
 
-    // crosshair
+    // crosshair — 使用主图的 candleCenterX 确保与主图精确对齐
     if (m_crossIdx>=start && m_crossIdx < start+count) {
-        int i = m_crossIdx - start;
-        double x = r.left() + i*barW + barW/2.0;
+        double x = static_cast<double>(ChartConfig::candleCenterX(m_crossIdx));
         p.setPen(QPen(Qt::magenta, 1.5, Qt::DashLine));
         p.drawLine(int(x), r.top(), int(x), r.bottom());
     }

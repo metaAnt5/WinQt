@@ -23,3 +23,7 @@ int ChartConfig::startIndex() { return g_startIndex; }
 int ChartConfig::visibleCount() { return g_visibleCount; }
 double ChartConfig::bodyWidth() { return g_bodyWidth; }
 int ChartConfig::rightPadding() { return g_rightPadding; }
+
+int ChartConfig::candleCenterX(int idx) {
+    return static_cast<int>(g_mainRect.left() + (idx - g_startIndex) * g_totalPer + g_totalPer / 2.0);
+}
