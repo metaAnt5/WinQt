@@ -39,6 +39,11 @@ set(PROJECT_SOURCES
     marketsconfig.cpp marketsconfig.h
     dataloader.cpp dataloader.h
     
+    # Simulation
+    simwindow.cpp simwindow.h
+    simengine.cpp simengine.h
+    simreader.cpp simreader.h
+    
     # Utilities
     apppaths.cpp apppaths.h
     clickfilter.cpp clickfilter.h

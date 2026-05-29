@@ -33,6 +33,7 @@
 #include <QtConcurrent/QtConcurrentRun>
 #include <QFutureWatcher>
 #include "dataloader.h"
+#include "simwindow.h"
 
 int main(int argc, char *argv[])
 {
@@ -374,6 +375,15 @@ int main(int argc, char *argv[])
     QObject::connect(aDelete, &QAction::triggered, [k](){ k->deleteSelectedShape(); });
     QObject::connect(aClear, &QAction::triggered, [k](){ k->clearShapes(); });
     QObject::connect(aNormal, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_None); });
+
+    // ----- 模拟回放按钮 -----
+    QAction *aSim = toolbar->addAction(QStringLiteral("模拟"));
+    QObject::connect(aSim, &QAction::triggered, [&mainWindow]() {
+        SimWindow *sim = new SimWindow(&mainWindow);
+        sim->setAttribute(Qt::WA_DeleteOnClose);
+        sim->show();
+    });
+
     mainWindow.resize(1000, 700);
 
     mainWindow.show();
