@@ -107,7 +107,7 @@ private:
         if (on_log_message_) on_log_message_(msg);
     }
 
-    // 同步等待响应
+    // 同步等待响应（从外部线程调用，非 bg 线程安全）
     bool do_fetch(const std::string& symbol, int timeFrame, uint64_t startTime, std::vector<KBar>& out) {
         if (!running_) return false;
 
@@ -134,10 +134,10 @@ private:
         return future.get();
     }
 
-    // 异步执行 RPC 请求
+    // 异步执行 RPC 请求（协程上下文，永不阻塞 bg 线程）
     asio::awaitable<IResponse> async_fetch(const std::string& symbol, int timeFrame, uint64_t startTime) {
-        // 确保已连接
-        if (!ensure_connected()) {
+        // 确保已连接（协程版，不会阻塞 bg 线程）
+        if (!co_await async_ensure_connected()) {
             log_msg("[RPC] async_fetch: not connected");
             co_return IResponse(0, 0, METHOD_GET_KBARS, {}, RpcError::NOT_CONNECTED);
         }
@@ -185,78 +185,82 @@ private:
     }
 
     asio::awaitable<IResponse> wait_for_response(uint32_t req_id, int timeout_ms) {
-        // 使用 promise/future 模式在 read_loop 中等待匹配的响应
-        auto promise = std::make_shared<std::promise<IResponse>>();
-        auto future = promise->get_future();
+        auto result = std::make_shared<IResponse>(req_id, 0, METHOD_GET_KBARS, {}, RpcError::TIMEOUT);
+        auto timer = std::make_shared<asio::steady_timer>(io_mgr_->get_io_context());
 
+        // 注册回调：响应到达时设置结果并取消定时器
         {
             std::lock_guard<std::mutex> lock(pending_mutex_);
-            pending_responses_[req_id] = [promise](IResponse resp) {
-                promise->set_value(std::move(resp));
+            pending_responses_[req_id] = [result, timer](IResponse resp) {
+                *result = std::move(resp);
+                asio::error_code ec;
+                timer->cancel(ec);
             };
         }
 
-        // 设置超时
-        auto timer = std::make_shared<asio::steady_timer>(io_mgr_->get_io_context());
+        // 启动超时定时器
         timer->expires_after(std::chrono::milliseconds(timeout_ms));
-        timer->async_wait([this, req_id, timer](const asio::error_code& ec) {
-            if (!ec) {
-                std::lock_guard<std::mutex> lock(pending_mutex_);
-                auto it = pending_responses_.find(req_id);
-                if (it != pending_responses_.end()) {
-                    auto cb = std::move(it->second);
-                    pending_responses_.erase(it);
-                    cb(IResponse(req_id, 0, METHOD_GET_KBARS, {}, RpcError::TIMEOUT));
-                }
-            }
-        });
+        asio::error_code ec;
+        co_await timer->async_wait(asio::redirect_error(asio::use_awaitable, ec));
 
-        // 阻塞等待
-        IResponse resp = future.get();
-        co_return resp;
+        // 清理回调（如果超时了还没被移除）
+        {
+            std::lock_guard<std::mutex> lock(pending_mutex_);
+            auto it = pending_responses_.find(req_id);
+            if (it != pending_responses_.end()) {
+                pending_responses_.erase(it);
+            }
+        }
+
+        co_return *result;
     }
 
-    bool ensure_connected() {
+    // 协程版连接（用于 bg 线程协程上下文，不死锁）
+    asio::awaitable<bool> async_ensure_connected() {
         if (client_ && client_->state() == ConnectionState::CONNECTED) {
-            return true;
+            co_return true;
         }
 
         log_msg(std::string("[RPC] Connecting to ") + config_.host + ":" + std::to_string(config_.port) + " ...");
 
         client_ = std::make_shared<Client>(io_mgr_->get_io_context());
-        auto conn = client_->GetConnection();
 
-        // 同步连接（阻塞）
-        std::promise<bool> conn_promise;
-        auto conn_future = conn_promise.get_future();
+        bool ok = co_await client_->async_connect(config_.host, config_.port);
+        if (ok) {
+            log_msg("[RPC] TCP connected successfully, starting read loop...");
+            // 启动读循环（但在调用栈里 read_loop 由 connect_and_read_loop 调，不在此处启动）
+        } else {
+            log_msg("[RPC] TCP connection failed");
+        }
 
-        asio::co_spawn(io_mgr_->get_io_context(),
-            [this, promise = std::move(conn_promise)]() mutable
-            -> asio::awaitable<void> {
-                bool ok = co_await client_->async_connect(config_.host, config_.port);
-                if (ok) {
-                    log_msg("[RPC] TCP connected successfully, starting read loop...");
-                    // 启动读循环
-                    asio::co_spawn(io_mgr_->get_io_context(),
-                        [this]() -> asio::awaitable<void> {
-                            co_await read_loop();
-                        },
-                        asio::detached);
-                } else {
-                    log_msg("[RPC] TCP connection failed");
-                }
-                promise.set_value(ok);
-            },
-            asio::detached);
-
-        bool ok = conn_future.get();
         if (ok && on_connection_changed_) {
             log_msg("[RPC] Connection established");
             on_connection_changed_(true);
         } else {
             log_msg("[RPC] Connection NOT established");
         }
-        return ok;
+        co_return ok;
+    }
+
+    // 同步版连接（用于 do_fetch 从外部线程 co_spawn + wait）
+    // 内部调用 async_ensure_connected 再用 promise/future 包装
+    bool ensure_connected() {
+        if (client_ && client_->state() == ConnectionState::CONNECTED) {
+            return true;
+        }
+
+        std::promise<bool> promise;
+        auto future = promise.get_future();
+
+        asio::co_spawn(io_mgr_->get_io_context(),
+            [this, promise = std::move(promise)]() mutable
+            -> asio::awaitable<void> {
+                bool ok = co_await async_ensure_connected();
+                promise.set_value(ok);
+            },
+            asio::detached);
+
+        return future.get();
     }
 
     asio::awaitable<void> read_loop() {
@@ -369,7 +373,7 @@ private:
 
     asio::awaitable<void> connect_and_read_loop() {
         while (running_) {
-            if (ensure_connected()) {
+            if (co_await async_ensure_connected()) {
                 co_await read_loop();
             }
             if (running_ && config_.auto_reconnect) {
