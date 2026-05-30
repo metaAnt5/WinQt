@@ -157,3 +157,63 @@ bool loadCsvFile(const QString &path, QVector<Candle> &outData, QString &symbol,
     }
     return !outData.isEmpty();
 }
+
+// ============================================================
+// 追加 K 线数据到 CSV 文件
+// 按时间排序，跳过重复（按时间戳去重）
+// ============================================================
+bool appendCsvFile(const QString &path, const QVector<Candle> &candles)
+{
+    if (candles.isEmpty()) return true;
+
+    // 1. 读取现有数据
+    QVector<Candle> existing;
+    QString dummySym;
+    int dummyTf = 1;
+    loadCsvFile(path, existing, dummySym, dummyTf);
+
+    // 2. 合并：将现有时间戳放入 set
+    QSet<qint64> existingTimes;
+    for (const auto &c : existing) {
+        existingTimes.insert(c.date.toSecsSinceEpoch());
+    }
+
+    // 3. 只添加不存在的、且时间 >= 现有最后时间的数据
+    qint64 lastTime = 0;
+    if (!existing.isEmpty()) {
+        lastTime = existing.last().date.toSecsSinceEpoch();
+    }
+
+    QVector<Candle> toAppend;
+    toAppend.reserve(candles.size());
+    for (const auto &c : candles) {
+        qint64 t = c.date.toSecsSinceEpoch();
+        if (t >= lastTime && !existingTimes.contains(t)) {
+            toAppend.append(c);
+        }
+    }
+
+    if (toAppend.isEmpty()) return true;
+
+    // 4. 按时间排序
+    std::sort(toAppend.begin(), toAppend.end(),
+        [](const Candle &a, const Candle &b) {
+            return a.date.toSecsSinceEpoch() < b.date.toSecsSinceEpoch();
+        });
+
+    // 5. 追加写入
+    QFile f(path);
+    if (!f.open(QIODevice::Append | QIODevice::Text)) return false;
+    QTextStream out(&f);
+    for (const auto &c : toAppend) {
+        out << c.date.toString("yyyy.MM.dd") << ","
+            << c.date.toString("HH:mm") << ","
+            << QString::number(c.open, 'f', 5) << ","
+            << QString::number(c.high, 'f', 5) << ","
+            << QString::number(c.low, 'f', 5) << ","
+            << QString::number(c.close, 'f', 5) << ","
+            << QString::number(c.volume, 'f', 0) << "\n";
+    }
+    f.close();
+    return true;
+}

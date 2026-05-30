@@ -240,7 +240,7 @@ int main(int argc, char *argv[])
     a1->setChecked(true);
 
     // find KLineWidget and create DataLoader
-    KLineWidget *klineWidget = mainWindow.findChild<KLineWidget*>();
+    KLineWidget *klineWidget = k;  // 使用上面已创建的 KLineWidget
     DataLoader *loader = nullptr;
     if (klineWidget) {
         loader = new DataLoader(klineWidget, &mainWindow);
@@ -260,12 +260,18 @@ int main(int argc, char *argv[])
             klineWidget->showLoading(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(tf));
         });
 
-        // 加载完成或失败 -> 隐藏 Loading
-        QObject::connect(loader, &DataLoader::loadFinished, klineWidget, [klineWidget]() {
+        // 加载完成或失败 -> 隐藏 Loading，显示"暂无数据"（如果数据为空）
+        QObject::connect(loader, &DataLoader::loadFinished, klineWidget,
+            [klineWidget](const QString &symbol, int tf, bool success) {
             klineWidget->hideLoading();
+            if (!success) {
+                // 无数据由 setData 内部的判断自动显示
+            }
         });
-        QObject::connect(loader, &DataLoader::loadFailed, klineWidget, [klineWidget]() {
+        QObject::connect(loader, &DataLoader::loadFailed, klineWidget,
+            [klineWidget](const QString &symbol, int tf, const QString &reason) {
             klineWidget->hideLoading();
+            Q_UNUSED(symbol) Q_UNUSED(tf) Q_UNUSED(reason)
         });
 
         // 连接状态变化 -> 更新实时价格标签的圆点颜色

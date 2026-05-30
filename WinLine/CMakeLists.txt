@@ -81,7 +81,7 @@ else()
     endif()
 endif()
 
-target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent ${NETCORE_DIR}/x64/Debug/NetCore.lib)
+target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent ${NETCORE_DIR}/x64/$<IF:$<CONFIG:Debug>,Debug,Release>/NetCore.lib)
 
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

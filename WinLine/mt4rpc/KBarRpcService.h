@@ -126,11 +126,19 @@ public:
     static constexpr uint16_t METHOD_PUSH_KBAR  = 3001;
 
     struct Config {
-        std::string host = "127.0.0.1";
-        uint16_t port = 9200;
-        int reconnect_interval_ms = 3000;
-        int request_timeout_ms = 10000;
-        bool auto_reconnect = true;
+        std::string host;
+        uint16_t port;
+        int reconnect_interval_ms;
+        int request_timeout_ms;
+        bool auto_reconnect;
+
+        Config()
+            : host("127.0.0.1")
+            , port(9200)
+            , reconnect_interval_ms(3000)
+            , request_timeout_ms(10000)
+            , auto_reconnect(true)
+        {}
     };
 
     explicit KBarRpcService(const Config& config = Config());
@@ -146,12 +154,9 @@ public:
     bool fetch_kbars(const std::string& symbol, int timeFrame,
                      std::vector<KBar>& out);
 
-    // 获取指定品种/周期的最新 N 根 K 线
-    bool fetch_latest_kbars(const std::string& symbol, int timeFrame,
-                            size_t count, std::vector<KBar>& out);
-
-    // 获取指定品种/周期的最新一根 K 线
-    KBar fetch_latest_kbar(const std::string& symbol, int timeFrame);
+    // 获取指定品种/周期从 startTime 开始的增量 K 线（含 startTime）
+    bool fetch_kbars_since(const std::string& symbol, int timeFrame,
+                           uint64_t startTime, std::vector<KBar>& out);
 
     // ---- 回调 ----
     // 当收到服务器推送的 K 线更新时回调

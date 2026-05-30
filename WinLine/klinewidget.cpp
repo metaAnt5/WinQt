@@ -73,6 +73,37 @@ void KLineWidget::hideLoading()
     }
 }
 
+void KLineWidget::showNoData()
+{
+    if (!m_noDataLabel) {
+        m_noDataLabel = new QLabel(this);
+        m_noDataLabel->setAlignment(Qt::AlignCenter);
+        m_noDataLabel->setStyleSheet(
+            "QLabel {"
+            "  background-color: rgba(0, 0, 0, 180);"
+            "  color: #888888;"
+            "  font-size: 20px;"
+            "  font-weight: bold;"
+            "  border: 2px dashed #666666;"
+            "  border-radius: 8px;"
+            "  padding: 20px;"
+            "}");
+        m_noDataLabel->setText(QStringLiteral("暂无数据"));
+    }
+    int w = qMin(width() * 3 / 4, 300);
+    int h = 80;
+    m_noDataLabel->setGeometry((width() - w) / 2, (height() - h) / 2, w, h);
+    m_noDataLabel->raise();
+    m_noDataLabel->setVisible(true);
+}
+
+void KLineWidget::hideNoData()
+{
+    if (m_noDataLabel) {
+        m_noDataLabel->setVisible(false);
+    }
+}
+
 // helper: distance from point to segment (bounded between endpoints)
 static double pointSegDist(const QPointF &p, const QPointF &a, const QPointF &b){
     double dx = b.x() - a.x();
@@ -113,6 +144,14 @@ void KLineWidget::setData(const QVector<Candle> &data, int baseMinutes)
     m_baseMinutes = qMax(1, baseMinutes);
     // default timeframe: use the data as-is
     setTimeframe(m_timeframe);
+
+    // 自动显示/隐藏"暂无数据"覆盖层
+    if (m_allData.isEmpty()) {
+        hideLoading();
+        showNoData();
+    } else {
+        hideNoData();
+    }
 }
 
 void KLineWidget::updateRange()
@@ -180,6 +219,11 @@ void KLineWidget::resizeEvent(QResizeEvent *event)
     if (m_crosshairVisible && !m_data.isEmpty()) {
         snapCrosshairTo(m_crosshairPos);
     }
+
+    // 通知副图指标窗口（Volume、KDJ、MACD）更新数据和视口
+    emit dataAggregated(m_data);
+    emit viewportChanged(m_startIndex, visibleCount());
+    emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
 }
 
 void KLineWidget::mousePressEvent(QMouseEvent *event)
@@ -452,17 +496,19 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
     // existing panning, crosshair, tooltip logic
     if (m_panning && !m_data.isEmpty()) {
         int dx = event->pos().x() - m_lastMousePos.x();
-        double totalPer = (m_candleWidth * m_scale) + m_gap;
-        if (totalPer > 0) {
-            int deltaIndex = int(-dx / totalPer);
+        double totalPer2 = (m_candleWidth * m_scale) + m_gap;
+        if (totalPer2 > 0) {
+            int deltaIndex = int(-dx / totalPer2);
             if (deltaIndex != 0) {
                 m_startIndex += deltaIndex;
                 ensureStartIndexVisible();
                 updateRange();
                 update();
                 m_lastMousePos = event->pos();
+                // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
+                ChartConfig::setLayout(mainChartRect(), totalPer2, m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
                 emit viewportChanged(m_startIndex, visibleCount());
-                emit layoutChanged(m_startIndex, visibleCount(), totalPer, candleBodyWidth(), mainChartRect());
+                emit layoutChanged(m_startIndex, visibleCount(), totalPer2, candleBodyWidth(), mainChartRect());
                 // keep crosshair in sync after viewport change
                 if (m_crosshairVisible) {
                     snapCrosshairTo(m_crosshairPos);
@@ -1041,6 +1087,8 @@ void KLineWidget::setTimeframe(Timeframe tf)
     m_startIndex = qMax(0, m_data.size() - visibleCount());
     updateRange();
     calculateMovingAverages();
+    // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
+    ChartConfig::setLayout(mainChartRect(), totalPer(), m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
     emit dataAggregated(m_data);
     emit viewportChanged(m_startIndex, visibleCount());
     emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
@@ -1107,6 +1155,8 @@ void KLineWidget::wheelEvent(QWheelEvent *event)
         m_startIndex = computedStart;
         ensureStartIndexVisible();
         updateRange();
+        // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
+        ChartConfig::setLayout(mainChartRect(), totalPerNew, m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
         emit viewportChanged(m_startIndex, visibleCount());
         emit layoutChanged(m_startIndex, visibleCount(), totalPerNew, candleBodyWidth(), mainChartRect());
         update();
@@ -1482,6 +1532,8 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
     m_lastOpen = c.open;
     updateRealtimeLabel();
 
+    // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
+    ChartConfig::setLayout(mainChartRect(), totalPer(), m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
     emit dataAggregated(m_data);
     emit viewportChanged(m_startIndex, visibleCount());
     emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());

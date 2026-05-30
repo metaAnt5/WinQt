@@ -82,16 +82,9 @@ public:
         return do_fetch(symbol, timeFrame, 0, out);
     }
 
-    bool fetch_latest_kbars(const std::string& symbol, int timeFrame, size_t count, std::vector<KBar>& out) {
-        return do_fetch(symbol, timeFrame, static_cast<uint16_t>(count), out);
-    }
-
-    KBar fetch_latest_kbar(const std::string& symbol, int timeFrame) {
-        std::vector<KBar> bars;
-        if (do_fetch(symbol, timeFrame, 1, bars) && !bars.empty()) {
-            return bars.back();
-        }
-        return KBar{};
+    bool fetch_kbars_since(const std::string& symbol, int timeFrame,
+                           uint64_t startTime, std::vector<KBar>& out) {
+        return do_fetch(symbol, timeFrame, startTime, out);
     }
 
     // ---- 回调设置 ----
@@ -115,17 +108,17 @@ private:
     }
 
     // 同步等待响应
-    bool do_fetch(const std::string& symbol, int timeFrame, uint16_t count, std::vector<KBar>& out) {
+    bool do_fetch(const std::string& symbol, int timeFrame, uint64_t startTime, std::vector<KBar>& out) {
         if (!running_) return false;
 
         std::promise<bool> promise;
         auto future = promise.get_future();
 
         asio::co_spawn(io_mgr_->get_io_context(),
-            [this, symbol, timeFrame, count, &out, promise = std::move(promise)]() mutable
+            [this, symbol, timeFrame, startTime, &out, promise = std::move(promise)]() mutable
             -> asio::awaitable<void> {
                 try {
-                    IResponse resp = co_await async_fetch(symbol, timeFrame, count);
+                    IResponse resp = co_await async_fetch(symbol, timeFrame, startTime);
                     if (resp.error_code() == 0) {
                         out = GetKbarsResponse<KBar>::from_payload(resp.payload()).bars;
                         promise.set_value(true);
@@ -142,7 +135,7 @@ private:
     }
 
     // 异步执行 RPC 请求
-    asio::awaitable<IResponse> async_fetch(const std::string& symbol, int timeFrame, uint16_t count) {
+    asio::awaitable<IResponse> async_fetch(const std::string& symbol, int timeFrame, uint64_t startTime) {
         // 确保已连接
         if (!ensure_connected()) {
             log_msg("[RPC] async_fetch: not connected");
@@ -156,7 +149,7 @@ private:
         }
 
         // 构建请求 payload（使用协议封装类）
-        auto payload = GetKbarsRequest{symbol, timeFrame, count}.to_payload();
+        auto payload = GetKbarsRequest{symbol, timeFrame, startTime}.to_payload();
 
         // 组装 RPC 请求
         static std::atomic<uint32_t> s_req_id{1};
@@ -168,7 +161,7 @@ private:
 
         log_msg(std::string("[RPC] Sending GET_KBARS req_id=") + std::to_string(req_id)
                 + " symbol=" + symbol + " tf=" + std::to_string(timeFrame)
-                + " count=" + std::to_string(count));
+                + " startTime=" + std::to_string(startTime));
 
         // 使用 BinaryPacker 发送
         BinaryPacker packer;
@@ -435,11 +428,7 @@ bool KBarRpcService::fetch_kbars(const std::string& symbol, int timeFrame,
     return impl_->fetch_kbars(symbol, timeFrame, out);
 }
 
-bool KBarRpcService::fetch_latest_kbars(const std::string& symbol, int timeFrame,
-                                         size_t count, std::vector<KBar>& out) {
-    return impl_->fetch_latest_kbars(symbol, timeFrame, count, out);
-}
-
-KBar KBarRpcService::fetch_latest_kbar(const std::string& symbol, int timeFrame) {
-    return impl_->fetch_latest_kbar(symbol, timeFrame);
+bool KBarRpcService::fetch_kbars_since(const std::string& symbol, int timeFrame,
+                                        uint64_t startTime, std::vector<KBar>& out) {
+    return impl_->fetch_kbars_since(symbol, timeFrame, startTime, out);
 }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Markets>
+    <Market name="福汇" dataDir="data/fh" apiType="file" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
+        <Symbol csvPath="XAUUSD.csv">XAUUSD</Symbol>
+        <Symbol csvPath="NAS100.csv">NAS100</Symbol>
+        <Symbol csvPath="USOIL.csv">USOil</Symbol>
+    </Market>
+</Markets>

@@ -165,6 +165,11 @@ private:
     // Loading overlay
     QLabel *m_loadingLabel = nullptr;
 
+    // No data overlay
+    QLabel *m_noDataLabel = nullptr;
+    void showNoData();
+    void hideNoData();
+
     // Realtime price label
     QLabel *m_realtimeLabel = nullptr;
     double m_lastPrice = 0;

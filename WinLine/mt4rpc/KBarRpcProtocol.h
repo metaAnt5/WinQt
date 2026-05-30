@@ -11,13 +11,14 @@ using namespace NetCore;
 // ============================================================
 // GetKbarsRequest - GET_KBARS (3000) 请求协议封装
 //
-// 请求 payload 格式: [symbol_len(u32)][symbol_data(char[])][timeFrame(i32)][count(u16)]
-//   - count=0 表示获取全部 K 线
+// 请求 payload 格式: [symbol_len(u32)][symbol_data(char[])][timeFrame(i32)][startTime(u64)]
+//   - startTime=0 表示获取全部 K 线
+//   - startTime>0 表示获取时间 >= startTime 的 K 线
 // ============================================================
 struct GetKbarsRequest {
     std::string symbol;
     int timeFrame = 1;
-    uint16_t count = 0;  // 0 = 获取全部
+    uint64_t startTime = 0;  // 0 = 获取全部; >0 = 从该时间戳开始（含）
 
     void serialize(ByteBuffer& buf) const {
         uint32_t sym_len = static_cast<uint32_t>(symbol.size());
@@ -26,7 +27,7 @@ struct GetKbarsRequest {
             buf.write(symbol.data(), sym_len);
         }
         buf.write_value(timeFrame);
-        buf.write_value(count);
+        buf.write_value(startTime);
     }
 
     static GetKbarsRequest deserialize(ByteBuffer& buf) {
@@ -37,7 +38,7 @@ struct GetKbarsRequest {
             req.symbol.assign(sym_data, sym_len);
         }
         req.timeFrame = buf.read_value<int32_t>();
-        req.count = buf.read_value<uint16_t>();
+        req.startTime = buf.read_value<uint64_t>();
         return req;
     }
 
