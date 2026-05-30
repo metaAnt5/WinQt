@@ -36,6 +36,7 @@
 #include <QFutureWatcher>
 #include "dataloader.h"
 #include "simwindow.h"
+#include "drawtoolbar.h"
 
 int main(int argc, char *argv[])
 {
@@ -296,139 +297,9 @@ int main(int argc, char *argv[])
     k->setData(sampleKLineData());
     k->setTimeframe(KLineWidget::TF_1m);
 
-    // ---- 画图工具栏图标（QPainter 手绘，只画一次，不影响性能）----
-    auto makeIcon = [](std::function<void(QPainter&)> draw) -> QIcon {
-        QPixmap px(24, 24);
-        px.fill(Qt::transparent);
-        QPainter p(&px);
-        p.setRenderHint(QPainter::Antialiasing);
-        draw(p);
-        p.end();
-        return QIcon(px);
-    };
-
-    // Normal: 鼠标指针（退出画图模式）
-    QIcon iconNormal = makeIcon([](QPainter &p){
-        p.setPen(QPen(Qt::white, 1.5));
-        p.drawLine(4,4, 4,20);
-        p.drawLine(4,4, 16,12);
-        p.drawLine(4,12, 12,16);
-        p.drawLine(16,12, 20,20);
-    });
-
-    // Line: 一条贯穿的斜线，两端带小点表示无限延伸
-    QIcon iconLine = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(200,200,50), 2));
-        p.drawLine(3,21, 21,3);
-        p.setBrush(QColor(200,200,50));
-        p.drawEllipse(QPoint(3,21), 2,2);
-        p.drawEllipse(QPoint(21,3), 2,2);
-    });
-
-    // Trend: 射线 —— 左侧圆点起点，右侧延伸带箭头
-    QIcon iconTrend = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(100,200,255), 2));
-        p.drawLine(4,20, 18,6);
-        // 箭头
-        p.drawLine(18,6, 12,6);
-        p.drawLine(18,6, 18,12);
-        // 起点圆点
-        p.setBrush(QColor(100,200,255));
-        p.drawEllipse(QPoint(4,20), 2,2);
-    });
-
-    // Text: 字母 A
-    QIcon iconText = makeIcon([](QPainter &p){
-        p.setPen(QPen(Qt::white, 2));
-        QFont f = p.font(); f.setPixelSize(18); f.setBold(true);
-        p.setFont(f);
-        p.drawText(QRect(0,0,24,24), Qt::AlignCenter, "A");
-    });
-
-    // 上箭头
-    QIcon iconUp = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(100,255,100), 2));
-        p.setBrush(QColor(100,255,100));
-        QPolygonF arrow;
-        arrow << QPointF(12,2) << QPointF(4,12) << QPointF(9,12)
-              << QPointF(9,22) << QPointF(15,22) << QPointF(15,12)
-              << QPointF(20,12);
-        p.drawPolygon(arrow);
-    });
-
-    // 下箭头
-    QIcon iconDown = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(255,100,100), 2));
-        p.setBrush(QColor(255,100,100));
-        QPolygonF arrow;
-        arrow << QPointF(12,22) << QPointF(4,12) << QPointF(9,12)
-              << QPointF(9,2) << QPointF(15,2) << QPointF(15,12)
-              << QPointF(20,12);
-        p.drawPolygon(arrow);
-    });
-
-    // Delete: 红叉
-    QIcon iconDelete = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(255,80,80), 3));
-        p.drawLine(4,4, 20,20);
-        p.drawLine(20,4, 4,20);
-    });
-
-    // Clear: 垃圾桶
-    QIcon iconClear = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(200,200,200), 1.5));
-        // 桶身
-        p.drawRect(5,9, 14,13);
-        // 桶口
-        p.drawLine(3,9, 21,9);
-        // 把手
-        p.drawLine(9,9, 9,5);
-        p.drawLine(15,9, 15,5);
-        p.drawLine(9,5, 15,5);
-        // 桶身条纹
-        p.drawLine(8,13, 16,13);
-        p.drawLine(8,17, 16,17);
-    });
-
-    // HLine: 水平线
-    QIcon iconHLine = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(200,200,255), 2));
-        p.drawLine(2,12, 22,12);
-        p.drawLine(2,10, 2,14);
-        p.drawLine(22,10, 22,14);
-    });
-    // VLine: 垂直线
-    QIcon iconVLine = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(200,200,255), 2));
-        p.drawLine(12,2, 12,22);
-        p.drawLine(10,2, 14,2);
-        p.drawLine(10,22, 14,22);
-    });
-
-    QToolBar *tb = new QToolBar(&mainWindow);
-    QAction *aNormal = tb->addAction(iconNormal, "");
-    QAction *aLine = tb->addAction(iconLine, "");
-    QAction *aTrend = tb->addAction(iconTrend, "");
-    QAction *aHLine = tb->addAction(iconHLine, "");
-    QAction *aVLine = tb->addAction(iconVLine, "");
-    QAction *aText = tb->addAction(iconText, "");
-    QAction *aUp = tb->addAction(iconUp, "");
-    QAction *aDown = tb->addAction(iconDown, "");
-    QAction *aDelete = tb->addAction(iconDelete, "");
-    QAction *aClear = tb->addAction(iconClear, "");
-
+    // ---- 画图工具栏（共用 drawtoolbar.h 实现）----
+    QToolBar *tb = createDrawingToolbar(k, &mainWindow);
     mainWindow.addToolBar(tb);
-
-    QObject::connect(aLine, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_Line); });
-    QObject::connect(aTrend, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_Trend); });
-    QObject::connect(aUp, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_GestureUp); });
-    QObject::connect(aDown, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_GestureDown); });
-    QObject::connect(aHLine, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_HLine); });
-    QObject::connect(aVLine, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_VLine); });
-    QObject::connect(aText, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_Text); });
-    QObject::connect(aDelete, &QAction::triggered, [k](){ k->deleteSelectedShape(); });
-    QObject::connect(aClear, &QAction::triggered, [k](){ k->clearShapes(); });
-    QObject::connect(aNormal, &QAction::triggered, [k](){ k->setToolMode(KLineWidget::Tool_None); });
 
     // ----- 模拟回放按钮 -----
     QAction *aSim = toolbar->addAction(QStringLiteral("模拟"));
