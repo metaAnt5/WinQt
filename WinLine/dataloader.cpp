@@ -509,11 +509,12 @@ void DataLoader::appendToLocalFile(const QString &symbol, int tf,
     QString filePath = QDir(dataDir).filePath(filename);
 
     // 如果有 filenamePattern，用它来生成文件名
+    // 占位符格式与 FileDataProvider 一致：%{symbol} 和 %{tf}
     if (!filenamePattern.isEmpty()) {
         filePath = QDir(dataDir).filePath(
             filenamePattern
-                .replace("{Symbol}", symbol)
-                .replace("{Timeframe}", QString::number(tf)));
+                .replace("%{symbol}", symbol)
+                .replace("%{tf}", QString::number(tf)));
     }
 
     // 转换 KBar -> Candle
