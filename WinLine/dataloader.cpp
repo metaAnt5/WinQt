@@ -58,28 +58,37 @@ public:
         KBarRpcService::Config cfg = loadConfig();
         m_rpc = std::make_shared<KBarRpcService>(cfg);
 
-        // RPC 日志 -> 输出到 log widget
+        // RPC 日志 -> 输出到 log widget（RPC 后台线程调用，需跨线程投递到主线程）
         m_rpc->on_log_message = [this](const std::string &msg) {
             if (m_destroying) return;
-            QTextEdit *log = m_parent->getLogWidget();
-            if (log) log->append(QString::fromStdString(msg));
+            QString text = QString::fromStdString(msg);
+            // 通过 QMetaObject 投递到主线程执行，避免跨线程访问 QTextEdit
+            QMetaObject::invokeMethod(m_parent, [this, text]() {
+                if (m_destroying) return;
+                QTextEdit *log = m_parent->getLogWidget();
+                if (log) log->append(text);
+            }, Qt::QueuedConnection);
         };
 
-        // 连接状态回调
+        // 连接状态回调（RPC 后台线程调用）
         m_rpc->on_connection_changed = [this](bool connected) {
             if (m_destroying) return;
-            QTextEdit *log = m_parent->getLogWidget();
-            if (connected) {
-                if (log) log->append(QStringLiteral("[TCP] connected to %1:%2")
-                    .arg(QString::fromStdString(m_rpc->config().host))
-                    .arg(m_rpc->config().port));
-            } else {
-                if (log) log->append(QStringLiteral("[TCP] disconnected"));
-            }
+            // 发射信号是线程安全的（Qt 自动 QueuedConnection）
             emit m_parent->connectionStatusChanged(connected);
+            QString msg = connected
+                ? QStringLiteral("[TCP] connected to %1:%2")
+                    .arg(QString::fromStdString(m_rpc->config().host))
+                    .arg(m_rpc->config().port)
+                : QStringLiteral("[TCP] disconnected");
+            QMetaObject::invokeMethod(m_parent, [this, msg]() {
+                if (m_destroying) return;
+                QTextEdit *log = m_parent->getLogWidget();
+                if (log) log->append(msg);
+            }, Qt::QueuedConnection);
         };
 
         // 推送回调：收到新 K 线数据 -> 写入 KBarManager + 通知 UI
+        // on_kbar_pushed 从 RPC 后台线程调用，但 emit signal 和 add_kbar 都是线程安全的
         m_rpc->on_kbar_pushed = [this](const KBar &kbar) {
             if (m_destroying) return;
             KBarManager::instance().add_kbar(kbar);
@@ -92,11 +101,15 @@ public:
                 static_cast<double>(kbar.volume));
         };
 
-        // 错误回调
+        // 错误回调（RPC 后台线程调用）
         m_rpc->on_error = [this](const std::string &err) {
             if (m_destroying) return;
-            QTextEdit *log = m_parent->getLogWidget();
-            if (log) log->append(QStringLiteral("[TCP] error: %1").arg(QString::fromStdString(err)));
+            QString text = QString::fromStdString(err);
+            QMetaObject::invokeMethod(m_parent, [this, text]() {
+                if (m_destroying) return;
+                QTextEdit *log = m_parent->getLogWidget();
+                if (log) log->append(QStringLiteral("[TCP] error: %1").arg(text));
+            }, Qt::QueuedConnection);
         };
     }
 
