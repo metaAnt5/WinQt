@@ -47,6 +47,7 @@ set(PROJECT_SOURCES
     # Utilities
     apppaths.cpp apppaths.h
     clickfilter.cpp clickfilter.h
+    drawtoolbar.h
     shapedialog.cpp shapedialog.h shapedialog.ui
     
     # NetCore RPC Client
