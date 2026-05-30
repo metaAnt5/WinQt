@@ -185,7 +185,9 @@ private:
     }
 
     asio::awaitable<IResponse> wait_for_response(uint32_t req_id, int timeout_ms) {
-        auto result = std::make_shared<IResponse>(req_id, 0, METHOD_GET_KBARS, {}, RpcError::TIMEOUT);
+        // 不能直接用 {} 作为 vector 参数传给 make_shared，MSVC 会解析为 initializer_list
+        auto result = std::make_shared<IResponse>(req_id, 0, METHOD_GET_KBARS,
+                                                  std::vector<char>(), RpcError::TIMEOUT);
         auto timer = std::make_shared<asio::steady_timer>(io_mgr_->get_io_context());
 
         // 注册回调：响应到达时设置结果并取消定时器
@@ -193,8 +195,7 @@ private:
             std::lock_guard<std::mutex> lock(pending_mutex_);
             pending_responses_[req_id] = [result, timer](IResponse resp) {
                 *result = std::move(resp);
-                asio::error_code ec;
-                timer->cancel(ec);
+                timer->cancel();
             };
         }
 
