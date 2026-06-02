@@ -6,16 +6,19 @@
 #include <QDateTime>
 #include <QString>
 #include <QColor>
+#include <QMap>
 
 
 struct Candle {
     QDateTime date;
-    double open;
-    double high;
-    double low;
-    double close;
-    double volume;
+    double open = 0.0;
+    double high = 0.0;
+    double low = 0.0;
+    double close = 0.0;
+    double volume = 0.0;
 };
+
+Q_DECLARE_METATYPE(Candle)
 
 class KLineWidget : public QWidget
 {
@@ -58,7 +61,10 @@ public:
 
     void setToolMode(ToolMode m);
     const QVector<Shape>& shapes() const { return m_shapes; }
+    int selectedShapeIndex() const { return m_selectedShapeIndex; }
     void setShapes(const QVector<Shape> &shapes) { m_shapes = shapes; m_selectedShapeIndex = -1; update(); }
+    // Adds a shape and assigns it a unique id; returns the shape id
+    int addShape(const Shape &s);
     void deleteSelectedShape();
     void clearShapes();
 
@@ -78,10 +84,21 @@ public:
     int indexForScreenX(int screenX) const;
     double candleBodyWidth() const;
 
+    // Save/Load shapes
+    QString shapesFilePath() const;
+    void saveShapes();
+    void loadShapes();
+
     // Realtime data update
     void updateRealtimeCandle(const Candle &c);
     void setSymbol(const QString &s);
     void setConnectionStatus(bool connected);
+
+    // Accessors for LuaEngine
+    const QVector<Candle>& allData() const { return m_allData; }
+    const QString& symbol() const { return m_symbol; }
+    int baseMinutes() const { return m_baseMinutes; }
+    Timeframe timeframe() const { return m_timeframe; }
 
     // Helper: find candle index by time (binary search on m_allData)
     int findCandleIndexByTime(const QDateTime &time) const;
@@ -96,6 +113,14 @@ Q_SIGNALS:
     void layoutChanged(int startIndex, int visibleCount, double totalPer, double candleBodyWidth, QRect mainChartRect);
     // Emit when shapes or trades are modified
     void shapesChanged();
+    // Emit when a shape is selected (index), for updating property panel
+    void shapeSelected(int index);
+
+    // Emit when shapes are loaded from file (for Lua script engine to load associated scripts)
+    void shapesLoaded();
+
+    // Emit when a realtime candle update arrives (for Lua script engine)
+    void candleUpdated(const Candle &candle, bool isNewBar);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
@@ -109,12 +134,11 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
-    QVector<Candle> m_allData; // original data (lowest timeframe)
-    QVector<Candle> m_data;    // displayed (aggregated) data
+    QVector<Candle> m_allData; // original data for current timeframe
+    QVector<Candle> m_data;    // displayed data
     double m_minPrice;
     double m_maxPrice;
     void updateRange();
-    void aggregateData(int factor);
 
     // interaction
     double m_scale;           // zoom scale for candle width
