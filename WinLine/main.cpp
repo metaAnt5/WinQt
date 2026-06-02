@@ -49,6 +49,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QSet>
+#include <QGroupBox>
 
 int main(int argc, char *argv[])
 {
@@ -117,53 +118,126 @@ int main(int argc, char *argv[])
     tabs->addTab(logText, "Log");
 
     // ================================================================
-    // 图形+脚本 页签（紧凑布局）
+    // 图形+脚本 页签（重新设计美化版）
     // ================================================================
-    QWidget *shapeScriptTab = new QWidget;
-    QVBoxLayout *ssLayout = new QVBoxLayout(shapeScriptTab);
-    ssLayout->setContentsMargins(2, 2, 2, 2);
-    ssLayout->setSpacing(4);
+    QString tabStyle = R"(
+        QGroupBox {
+            font: bold 12px;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            margin-top: 14px;
+            padding-top: 8px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 0 6px;
+            color: #cccccc;
+        }
+        QLabel#shapeInfo {
+            color: #e0e0e0;
+            font-size: 12px;
+            background: #2a2a2a;
+            border: 1px solid #444444;
+            border-radius: 3px;
+            padding: 6px;
+        }
+        QComboBox, QLineEdit {
+            padding: 3px 6px;
+            border: 1px solid #555555;
+            border-radius: 3px;
+            background: #2d2d2d;
+            color: #e0e0e0;
+        }
+        QPushButton#applyBtn {
+            background: #2d5a88;
+            color: white;
+            border: 1px solid #3a7bc8;
+            border-radius: 4px;
+            padding: 6px 16px;
+            font-size: 12px;
+            font-weight: bold;
+            min-height: 20px;
+        }
+        QPushButton#applyBtn:hover {
+            background: #3a7bc8;
+        }
+        QPushButton#applyBtn:pressed {
+            background: #1e4060;
+        }
+    )";
 
-    // 图形信息（小号显示）
+    QWidget *shapeScriptTab = new QWidget;
+    shapeScriptTab->setStyleSheet(tabStyle);
+    QVBoxLayout *ssLayout = new QVBoxLayout(shapeScriptTab);
+    ssLayout->setContentsMargins(8, 8, 8, 8);
+    ssLayout->setSpacing(6);
+
+    // ── 图形属性分组 ──
+    QGroupBox *shapeGroup = new QGroupBox("图形属性");
+    QVBoxLayout *shapeLayout = new QVBoxLayout(shapeGroup);
+    shapeLayout->setContentsMargins(6, 12, 6, 6);
+    shapeLayout->setSpacing(4);
+
     QLabel *shapeInfo = new QLabel("点击图形查看属性");
+    shapeInfo->setObjectName("shapeInfo");
     shapeInfo->setWordWrap(true);
-    shapeInfo->setMaximumHeight(40);
-    shapeInfo->setStyleSheet("color: #cccccc; font-size: 11px;");
-    ssLayout->addWidget(shapeInfo);
+    shapeInfo->setMinimumHeight(50);
+    shapeLayout->addWidget(shapeInfo);
+    ssLayout->addWidget(shapeGroup);
+
+    // ── 脚本配置分组 ──
+    QGroupBox *scriptGroup = new QGroupBox("脚本配置");
+    QVBoxLayout *scriptLayout = new QVBoxLayout(scriptGroup);
+    scriptLayout->setContentsMargins(6, 12, 6, 6);
+    scriptLayout->setSpacing(6);
 
     // 脚本选择
     QHBoxLayout *scriptRow = new QHBoxLayout;
-    scriptRow->setSpacing(4);
+    scriptRow->setSpacing(6);
+    QLabel *scriptLabel = new QLabel("脚本文件");
+    scriptLabel->setStyleSheet("color: #cccccc; font-size: 12px; font-weight: bold;");
     QComboBox *shapeScriptCombo = new QComboBox;
     shapeScriptCombo->setEditable(true);
-    shapeScriptCombo->setPlaceholderText("选择脚本...");
-    shapeScriptCombo->setMaximumHeight(24);
-    scriptRow->addWidget(new QLabel("脚本:"), 0);
+    shapeScriptCombo->setPlaceholderText("选择 .lua 脚本...");
+    shapeScriptCombo->setMinimumHeight(26);
+    scriptRow->addWidget(scriptLabel);
     scriptRow->addWidget(shapeScriptCombo, 1);
-    ssLayout->addLayout(scriptRow);
+    scriptLayout->addLayout(scriptRow);
 
-    // 参数 1-3（名称 + 值，紧凑）
+    // 参数 1-3
     QLineEdit *paramName[3], *paramValue[3];
+    QString paramLabels[3] = {"参数 1", "参数 2", "参数 3"};
     for (int i = 0; i < 3; ++i) {
         QHBoxLayout *row = new QHBoxLayout;
-        row->setSpacing(4);
-        QLabel *lbl = new QLabel(QString("P%1:").arg(i + 1));
-        lbl->setFixedWidth(20);
+        row->setSpacing(6);
+        QLabel *lbl = new QLabel(paramLabels[i]);
+        lbl->setFixedWidth(55);
+        lbl->setStyleSheet("color: #aaaaaa; font-size: 11px;");
+        QLineEdit *ne = new QLineEdit;
+        ne->setPlaceholderText("名称");
+        ne->setMinimumHeight(24);
+        QLineEdit *ve = new QLineEdit;
+        ve->setPlaceholderText("数值");
+        ve->setMinimumHeight(24);
         row->addWidget(lbl);
-        QLineEdit *ne = new QLineEdit; ne->setPlaceholderText("参数名"); ne->setMaximumHeight(22);
-        QLineEdit *ve = new QLineEdit; ve->setPlaceholderText("值"); ve->setMaximumHeight(22);
         row->addWidget(ne, 1);
         row->addWidget(ve, 1);
-        ssLayout->addLayout(row);
+        scriptLayout->addLayout(row);
         paramName[i] = ne;
         paramValue[i] = ve;
     }
 
     // 应用到图形
-    QPushButton *applyShapeScript = new QPushButton("应用到图形");
-    applyShapeScript->setMaximumHeight(24);
-    ssLayout->addWidget(applyShapeScript);
-    ssLayout->addStretch(); // 底部留空，不占空间
+    QPushButton *applyShapeScript = new QPushButton("✓ 应用到图形");
+    applyShapeScript->setObjectName("applyBtn");
+    applyShapeScript->setMinimumHeight(30);
+    scriptLayout->addSpacing(4);
+    scriptLayout->addWidget(applyShapeScript);
+    ssLayout->addWidget(scriptGroup);
+
+    // 弹性空间
+    ssLayout->addStretch();
 
     tabs->addTab(shapeScriptTab, "图形+脚本");
 
