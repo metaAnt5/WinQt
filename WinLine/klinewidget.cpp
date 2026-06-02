@@ -12,6 +12,13 @@
 #include <QColorDialog>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QCoreApplication>
+#include <QFile>
+#include <QFileInfo>
+#include <QDir>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 
 KLineWidget::KLineWidget(QWidget *parent)
@@ -141,9 +148,13 @@ void KLineWidget::setData(const QVector<Candle> &data)
 void KLineWidget::setData(const QVector<Candle> &data, int baseMinutes)
 {
     m_allData = data;
+    m_data = data;           // 直接使用，不做合并
     m_baseMinutes = qMax(1, baseMinutes);
-    // default timeframe: use the data as-is
-    setTimeframe(m_timeframe);
+    m_timeframe = static_cast<Timeframe>(baseMinutes);
+
+    m_startIndex = qMax(0, m_data.size() - visibleCount());
+    updateRange();
+    calculateMovingAverages();
 
     // 自动显示/隐藏"暂无数据"覆盖层
     if (m_allData.isEmpty()) {
@@ -152,6 +163,15 @@ void KLineWidget::setData(const QVector<Candle> &data, int baseMinutes)
     } else {
         hideNoData();
     }
+
+    // Load saved shapes for this symbol/timeframe
+    if (!m_symbol.isEmpty() && !m_allData.isEmpty()) {
+        loadShapes();
+    }
+
+    emit dataAggregated(m_data);
+    emit viewportChanged(m_startIndex, visibleCount());
+    emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
 }
 
 void KLineWidget::updateRange()
@@ -306,6 +326,7 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             }
             m_lastMousePos = event->pos();
             update();
+            emit shapeSelected(m_selectedShapeIndex);
             return;
         }
     }
@@ -650,10 +671,7 @@ void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
         m_crosshairVisible = !m_crosshairVisible;
         if (m_crosshairVisible) {
             m_crosshairPos = event->pos();
-            const int marginLeft = 40;
-            const int marginTop = 10;
-            const int marginBottom = 20;
-            QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+    QRect mainRect = mainChartRect();
             double priceRange = m_maxPrice - m_minPrice;
             if (priceRange != 0) {
                 double ratio = double(mainRect.bottom() - m_crosshairPos.y()) / double(mainRect.height());
@@ -704,12 +722,8 @@ void KLineWidget::paintEvent(QPaintEvent *event)
     // background
     p.fillRect(rect(), QColor(10, 10, 10));
 
-    // margins
-    const int marginLeft = 5;
-    const int marginTop = 10;
-    const int marginBottom = 20;
-    const int priceAxisWidth = 20;  // wider space for price text (supports ~10 digits)
-    QRect mainRect(marginLeft + priceAxisWidth, marginTop, width() - marginLeft - priceAxisWidth - 10 - m_rightPadding, height() - marginTop - marginBottom);
+    // 使用 mainChartRect() 获取主图区域（已在右侧预留实时价格线空间）
+    QRect mainRect = mainChartRect();
 
     // draw price scale (Y-axis) - light gray color with at least 10 price levels
     {
@@ -748,6 +762,7 @@ void KLineWidget::paintEvent(QPaintEvent *event)
     // draw time scale (X-axis) - light cyan color with higher density
     {
         // use mainRect computed above for consistent left position
+        const int marginBottom = 20;
         double totalPer = (m_candleWidth * m_scale) + m_gap;
         if (totalPer > 0 && !m_data.isEmpty()) {
             int visCount = visibleCount();
@@ -1025,12 +1040,42 @@ void KLineWidget::paintEvent(QPaintEvent *event)
     // draw moving averages
     drawMovingAverages(p);
     
+    // ================================================================
+    // 实时价格水平线（橙色虚线，最新 close 处）
+    // mainChartRect() 已在右侧预留空间，线画满主图区域
+    // 价格标签放在主图右边缘外侧（预留区内）
+    // ================================================================
+    if (m_connected && m_lastPrice > 0) {
+        QRect mr = mainChartRect();
+        double priceRange = m_maxPrice - m_minPrice;
+        if (priceRange > 0) {
+            double ratio = (m_lastPrice - m_minPrice) / priceRange;
+            int y = mr.bottom() - static_cast<int>(ratio * mr.height());
+            y = qBound(mr.top(), y, mr.bottom());
+
+            // 橙色虚线（画满主图区域）
+            QPen pricePen(QColor(255, 165, 0, 200), 2, Qt::DashLine);
+            p.setPen(pricePen);
+            p.drawLine(mr.left(), y, mr.right(), y);
+
+            // 标签放在主图右边缘外侧（预留区内）
+            p.setFont(QFont("Arial", 10, QFont::Bold));
+            QString priceStr = QString::number(m_lastPrice, 'f', 2);
+            QFontMetrics fm(p.font());
+            int tw = fm.horizontalAdvance(priceStr) + 8;
+            int th = fm.height() + 2;
+            QRectF labelRect(mr.right() + 2, y - th / 2 - 1, tw, th);
+            p.setBrush(QColor(255, 165, 0, 180));
+            p.setPen(Qt::NoPen);
+            p.drawRoundedRect(labelRect, 3, 3);
+            p.setPen(Qt::white);
+            p.drawText(labelRect, Qt::AlignCenter, priceStr);
+        }
+    }
+
     // draw crosshair if visible
     if (m_crosshairVisible) {
-        const int marginLeft = 40;
-        const int marginTop = 10;
-        const int marginBottom = 20;
-        QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+        QRect mainRect = mainChartRect();
 
         // draw vertical and horizontal lines in bright cyan color
         p.setPen(QPen(QColor(0, 255, 255), 2, Qt::SolidLine));
@@ -1076,14 +1121,9 @@ void KLineWidget::paintEvent(QPaintEvent *event)
 void KLineWidget::setTimeframe(Timeframe tf)
 {
     m_timeframe = tf;
-    int targetMin = int(m_timeframe);
-    if (targetMin <= m_baseMinutes) {
-        m_data = m_allData;
-    } else {
-        int factor = targetMin / m_baseMinutes;
-        if (factor <= 1) m_data = m_allData;
-        else aggregateData(factor);
-    }
+    m_baseMinutes = static_cast<int>(tf); // 同步 baseMinutes，确保推送过滤正确
+    // 不做本地合并，setData 会直接设置对应的数据
+    // m_data 和 m_allData 指向同一份数据
     m_startIndex = qMax(0, m_data.size() - visibleCount());
     updateRange();
     calculateMovingAverages();
@@ -1116,10 +1156,10 @@ void KLineWidget::deleteSelectedShape()
 {
     if (m_selectedShapeIndex >= 0 && m_selectedShapeIndex < m_shapes.size()) {
         m_shapes.removeAt(m_selectedShapeIndex);
-        m_selectedShapeIndex = -1;
-        update();
-        emit shapesChanged();
     }
+    m_selectedShapeIndex = -1;
+    update();
+    emit shapesChanged();
 }
 
 void KLineWidget::clearShapes()
@@ -1165,30 +1205,6 @@ void KLineWidget::wheelEvent(QWheelEvent *event)
     }
 }
 
-void KLineWidget::aggregateData(int factor)
-{
-    m_data.clear();
-    if (factor <= 1) { m_data = m_allData; return; }
-    int n = m_allData.size();
-    for (int i = 0; i < n; i += factor) {
-        int end = qMin(i + factor, n);
-        Candle agg = m_allData[i];
-        agg.open = m_allData[i].open;
-        agg.high = m_allData[i].high;
-        agg.low = m_allData[i].low;
-        agg.close = m_allData[end - 1].close;
-        agg.volume = 0;
-        for (int j = i; j < end; ++j) {
-            agg.high = qMax(agg.high, m_allData[j].high);
-            agg.low = qMin(agg.low, m_allData[j].low);
-            agg.volume += m_allData[j].volume;
-        }
-        // use timestamp of the last candle in the group
-        agg.date = m_allData[end - 1].date;
-        m_data.append(agg);
-    }
-    calculateMovingAverages();
-}
 
 void KLineWidget::editShapeProperties(int index)
 {
@@ -1352,10 +1368,7 @@ void KLineWidget::drawMovingAverages(QPainter &p)
         const_cast<KLineWidget*>(this)->calculateMovingAverages();
     }
     
-    const int marginLeft = 40;
-    const int marginTop = 10;
-    const int marginBottom = 20;
-    QRect mainRect(marginLeft, marginTop, width() - marginLeft - 10 - m_rightPadding, height() - marginTop - marginBottom);
+    QRect mainRect = mainChartRect();
     double priceRange = m_maxPrice - m_minPrice;
     if (priceRange <= 0) return;
 
@@ -1443,7 +1456,15 @@ QRect KLineWidget::mainChartRect() const {
     const int marginTop = 10;
     const int marginBottom = 20;
     const int priceAxisWidth = 20;
-    return QRect(marginLeft + priceAxisWidth, marginTop, width() - marginLeft - priceAxisWidth - 10 - m_rightPadding, height() - marginTop - marginBottom);
+    int rightPad = m_rightPadding;
+    // 右侧额外预留约3个K棒宽度，用于实时价格线和标签显示区域
+    double tp = (m_candleWidth * m_scale) + m_gap;
+    if (tp > 0) {
+        rightPad += static_cast<int>(3 * tp);
+    }
+    return QRect(marginLeft + priceAxisWidth, marginTop, 
+                 width() - marginLeft - priceAxisWidth - 10 - rightPad, 
+                 height() - marginTop - marginBottom);
 }
 
 double KLineWidget::totalPer() const {
@@ -1494,36 +1515,31 @@ void KLineWidget::snapCrosshairTo(const QPointF &pos)
 
 void KLineWidget::updateRealtimeCandle(const Candle &c)
 {
-    if (m_data.isEmpty()) {
-        m_data.append(c);
+    if (m_allData.isEmpty()) {
+        // 首根 K 线，直接追加
         m_allData.append(c);
-        updateRange();
-        calculateMovingAverages();
-        emit dataAggregated(m_data);
-        update();
-        return;
-    }
-
-    // 判断是同一根 K 线更新还是新 K 线追加
-    if (c.date == m_data.last().date) {
-        // 替换最后一条
-        m_data.last() = c;
-        if (!m_allData.isEmpty() && m_allData.last().date == c.date) {
-            m_allData.last() = c;
-        } else {
-            m_allData.append(c);
-        }
-    } else if (c.date > m_data.last().date) {
-        // 追加新 K 线
-        m_data.append(c);
-        m_allData.append(c);
-        // 自动滚动到最新
-        int visCount = visibleCount();
-        if (m_startIndex + visCount < m_data.size()) {
-            m_startIndex = qMax(0, m_data.size() - visCount);
-        }
+        m_data = m_allData;
     } else {
-        return; // 旧数据忽略
+        const Candle &last = m_allData.last();
+        qint64 diffSecs = qAbs(last.date.secsTo(c.date));
+
+        // 高周期（>=60min）允许 2 分钟时间戳偏差，低周期允许 30 秒
+        int toleranceSecs = (m_baseMinutes >= 60) ? 120 : 30;
+
+        if (diffSecs <= toleranceSecs) {
+            // 同根更新（时间戳在容差范围内视为同一根 K 线）
+            // 只更新 m_allData 的最后一项和 m_data 的最后一项
+            m_allData.last() = c;
+            if (!m_data.isEmpty()) {
+                m_data.last() = c;
+            }
+        } else if (c.date > last.date) {
+            // 新 K 线（确保时间确实更晚才追加）
+            m_allData.append(c);
+            m_data = m_allData;
+        } else {
+            return; // 旧数据忽略
+        }
     }
 
     updateRange();
@@ -1531,6 +1547,17 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
     m_lastPrice = c.close;
     m_lastOpen = c.open;
     updateRealtimeLabel();
+
+    // 正确判断 newBar：当前时间 > 最后一根 K 线时间（只有在真正的新 K 线时才为 true）
+    bool newBar = (m_allData.size() > 1 && c.date > m_allData.last().date);
+    // 通知 Lua 脚本引擎
+    emit candleUpdated(c, newBar);
+
+    // 自动滚动到最新
+    int visCount = visibleCount();
+    if (m_startIndex + visCount < m_data.size()) {
+        m_startIndex = qMax(0, m_data.size() - visCount);
+    }
 
     // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
     ChartConfig::setLayout(mainChartRect(), totalPer(), m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
@@ -1614,4 +1641,113 @@ void KLineWidget::updateRealtimeLabel()
     m_realtimeLabel->setGeometry(width() - labelW - 10, 10, labelW, labelH);
     m_realtimeLabel->raise();
     m_realtimeLabel->setVisible(true);
+}
+
+int KLineWidget::addShape(const Shape &s)
+{
+    Shape ns = s;
+    ns.id = m_nextShapeId++;
+    m_shapes.append(ns);
+    update();
+    emit shapesChanged();
+    return ns.id;
+}
+
+QString KLineWidget::shapesFilePath() const
+{
+    if (m_symbol.isEmpty()) return {};
+    // data/shapes/{symbol}_{tf}.json
+    QString dir = QCoreApplication::applicationDirPath() + "/data/shapes";
+    return dir + "/" + m_symbol + "_" + QString::number(m_baseMinutes) + ".json";
+}
+
+void KLineWidget::saveShapes()
+{
+    QString path = shapesFilePath();
+    if (path.isEmpty()) return;
+    if (m_shapes.isEmpty()) {
+        // empty shapes: remove file if exists
+        QFile::remove(path);
+        return;
+    }
+
+    QJsonArray arr;
+    for (const auto &s : m_shapes) {
+        QJsonObject obj;
+        obj["id"] = s.id;
+        obj["type"] = static_cast<int>(s.type);
+        obj["name"] = s.name;
+        obj["text"] = s.text;
+        obj["color"] = s.color.isValid() ? s.color.name() : "#FFFFFF";
+        obj["candleIdx1"] = s.candleIdx1;
+        obj["price1"] = s.price1;
+        obj["candleIdx2"] = s.candleIdx2;
+        obj["price2"] = s.price2;
+        obj["tradePrice"] = s.tradePrice;
+        obj["tradeTime"] = s.tradeTime.isValid() ? s.tradeTime.toString(Qt::ISODate) : "";
+        obj["quantity"] = s.quantity;
+        obj["profit"] = s.profit;
+        obj["scriptName"] = s.scriptName;
+        obj["scriptParams"] = s.scriptParams;
+        arr.append(obj);
+    }
+
+    QJsonObject root;
+    root["symbol"] = m_symbol;
+    root["timeframe"] = m_baseMinutes;
+    root["nextId"] = m_nextShapeId;
+    root["shapes"] = arr;
+
+    // ensure dir exists
+    QDir().mkpath(QFileInfo(path).absolutePath());
+
+    QFile f(path);
+    if (f.open(QIODevice::WriteOnly)) {
+        f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+    }
+}
+
+void KLineWidget::loadShapes()
+{
+    QString path = shapesFilePath();
+    if (path.isEmpty() || !QFile::exists(path)) return;
+
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly)) return;
+
+    QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    if (doc.isNull() || !doc.isObject()) return;
+
+    QJsonObject root = doc.object();
+    m_nextShapeId = root["nextId"].toInt(m_nextShapeId);
+    QJsonArray arr = root["shapes"].toArray();
+
+    m_shapes.clear();
+    for (const auto &val : arr) {
+        QJsonObject obj = val.toObject();
+        Shape s;
+        s.id = obj["id"].toInt();
+        s.type = static_cast<ShapeType>(obj["type"].toInt());
+        s.name = obj["name"].toString();
+        s.text = obj["text"].toString();
+        s.color = QColor(obj["color"].toString("#FFFFFF"));
+        s.candleIdx1 = obj["candleIdx1"].toInt();
+        s.price1 = obj["price1"].toDouble();
+        s.candleIdx2 = obj["candleIdx2"].toInt();
+        s.price2 = obj["price2"].toDouble();
+        s.tradePrice = obj["tradePrice"].toDouble();
+        QString ts = obj["tradeTime"].toString();
+        s.tradeTime = ts.isEmpty() ? QDateTime() : QDateTime::fromString(ts, Qt::ISODate);
+        s.quantity = obj["quantity"].toInt();
+        s.profit = obj["profit"].toDouble();
+        s.scriptName = obj["scriptName"].toString();
+        s.scriptParams = obj["scriptParams"].toString();
+        s.selected = false;
+        m_shapes.append(s);
+    }
+
+    m_selectedShapeIndex = -1;
+    update();
+    emit shapesChanged();
+    emit shapesLoaded();
 }
