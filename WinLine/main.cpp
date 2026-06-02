@@ -207,6 +207,16 @@ int main(int argc, char *argv[])
         logText->append("LuaScriptEngine initialized");
     }
 
+    // 连接脚本日志/错误到日志输出
+    QObject::connect(luaEngine, &LuaScriptEngine::scriptLog,
+        logText, [logText](const QString &msg) {
+        logText->append(QStringLiteral("[Lua] %1").arg(msg));
+    });
+    QObject::connect(luaEngine, &LuaScriptEngine::scriptError,
+        logText, [logText](const QString &scriptName, const QString &error) {
+        logText->append(QStringLiteral("[Lua Error] %1: %2").arg(scriptName, error));
+    });
+
     // 连接 K 线更新信号到脚本引擎（通过 requestBarEvent 实现跨线程安全调度）
     QObject::connect(k, &KLineWidget::candleUpdated, k,
         [luaEngine](const Candle &candle, bool isNewBar) {
