@@ -122,6 +122,9 @@ Q_SIGNALS:
     // Emit when a realtime candle update arrives (for Lua script engine)
     void candleUpdated(const Candle &candle, bool isNewBar);
 
+    // Emit when a shape is double-clicked (open properties dialog)
+    void shapeDoubleClicked(int index);
+
 protected:
     void paintEvent(QPaintEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;

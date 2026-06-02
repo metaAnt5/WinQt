@@ -664,8 +664,11 @@ void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
     }
 
     if (hitIndex >= 0) {
-        // hit a shape: open properties dialog
-        editShapeProperties(hitIndex);
+        // hit a shape: signal for advanced dialog
+        m_selectedShapeIndex = hitIndex;
+        m_draggingEndpoint = 0;
+        emit shapeSelected(hitIndex);
+        emit shapeDoubleClicked(hitIndex);
     } else {
         // no shape hit: toggle crosshair
         m_crosshairVisible = !m_crosshairVisible;

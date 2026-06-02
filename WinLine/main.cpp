@@ -117,146 +117,6 @@ int main(int argc, char *argv[])
     logText->setPlainText("Log / Info\n");
     tabs->addTab(logText, "Log");
 
-    // ================================================================
-    // 图形+脚本 页签（重新设计美化版）
-    // ================================================================
-    QString tabStyle = R"(
-        QGroupBox {
-            font: bold 12px;
-            border: 1px solid #555555;
-            border-radius: 4px;
-            margin-top: 14px;
-            padding-top: 8px;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            subcontrol-position: top left;
-            padding: 0 6px;
-            color: #cccccc;
-        }
-        QLabel#shapeInfo {
-            color: #e0e0e0;
-            font-size: 12px;
-            background: #2a2a2a;
-            border: 1px solid #444444;
-            border-radius: 3px;
-            padding: 6px;
-        }
-        QComboBox, QLineEdit {
-            padding: 3px 6px;
-            border: 1px solid #555555;
-            border-radius: 3px;
-            background: #2d2d2d;
-            color: #e0e0e0;
-        }
-        QPushButton#applyBtn {
-            background: #2d5a88;
-            color: white;
-            border: 1px solid #3a7bc8;
-            border-radius: 4px;
-            padding: 6px 16px;
-            font-size: 12px;
-            font-weight: bold;
-            min-height: 20px;
-        }
-        QPushButton#applyBtn:hover {
-            background: #3a7bc8;
-        }
-        QPushButton#applyBtn:pressed {
-            background: #1e4060;
-        }
-    )";
-
-    QWidget *shapeScriptTab = new QWidget;
-    shapeScriptTab->setStyleSheet(tabStyle);
-    QVBoxLayout *ssLayout = new QVBoxLayout(shapeScriptTab);
-    ssLayout->setContentsMargins(8, 8, 8, 8);
-    ssLayout->setSpacing(6);
-
-    // ── 图形属性分组 ──
-    QGroupBox *shapeGroup = new QGroupBox("图形属性");
-    QVBoxLayout *shapeLayout = new QVBoxLayout(shapeGroup);
-    shapeLayout->setContentsMargins(6, 12, 6, 6);
-    shapeLayout->setSpacing(4);
-
-    QLabel *shapeInfo = new QLabel("点击图形查看属性");
-    shapeInfo->setObjectName("shapeInfo");
-    shapeInfo->setWordWrap(true);
-    shapeInfo->setMinimumHeight(50);
-    shapeLayout->addWidget(shapeInfo);
-    ssLayout->addWidget(shapeGroup);
-
-    // ── 脚本配置分组 ──
-    QGroupBox *scriptGroup = new QGroupBox("脚本配置");
-    QVBoxLayout *scriptLayout = new QVBoxLayout(scriptGroup);
-    scriptLayout->setContentsMargins(6, 12, 6, 6);
-    scriptLayout->setSpacing(6);
-
-    // 脚本选择
-    QHBoxLayout *scriptRow = new QHBoxLayout;
-    scriptRow->setSpacing(6);
-    QLabel *scriptLabel = new QLabel("脚本文件");
-    scriptLabel->setStyleSheet("color: #cccccc; font-size: 12px; font-weight: bold;");
-    QComboBox *shapeScriptCombo = new QComboBox;
-    shapeScriptCombo->setEditable(true);
-    shapeScriptCombo->setPlaceholderText("选择 .lua 脚本...");
-    shapeScriptCombo->setMinimumHeight(26);
-    scriptRow->addWidget(scriptLabel);
-    scriptRow->addWidget(shapeScriptCombo, 1);
-    scriptLayout->addLayout(scriptRow);
-
-    // 参数 1-3
-    QLineEdit *paramName[3], *paramValue[3];
-    QString paramLabels[3] = {"参数 1", "参数 2", "参数 3"};
-    for (int i = 0; i < 3; ++i) {
-        QHBoxLayout *row = new QHBoxLayout;
-        row->setSpacing(6);
-        QLabel *lbl = new QLabel(paramLabels[i]);
-        lbl->setFixedWidth(55);
-        lbl->setStyleSheet("color: #aaaaaa; font-size: 11px;");
-        QLineEdit *ne = new QLineEdit;
-        ne->setPlaceholderText("名称");
-        ne->setMinimumHeight(24);
-        QLineEdit *ve = new QLineEdit;
-        ve->setPlaceholderText("数值");
-        ve->setMinimumHeight(24);
-        row->addWidget(lbl);
-        row->addWidget(ne, 1);
-        row->addWidget(ve, 1);
-        scriptLayout->addLayout(row);
-        paramName[i] = ne;
-        paramValue[i] = ve;
-    }
-
-    // 应用到图形
-    QPushButton *applyShapeScript = new QPushButton("✓ 应用到图形");
-    applyShapeScript->setObjectName("applyBtn");
-    applyShapeScript->setMinimumHeight(30);
-    scriptLayout->addSpacing(4);
-    scriptLayout->addWidget(applyShapeScript);
-    ssLayout->addWidget(scriptGroup);
-
-    // 弹性空间
-    ssLayout->addStretch();
-
-    tabs->addTab(shapeScriptTab, "图形+脚本");
-
-    // 刷新脚本下拉列表
-    auto refreshScriptCombo = [shapeScriptCombo]() {
-        shapeScriptCombo->clear();
-        QString scriptsDir = AppPaths::resolveDataDir("data/scripts");
-        QDir dir(scriptsDir);
-        auto files = dir.entryList({"*.lua"}, QDir::Files);
-        for (const auto &f : files)
-            shapeScriptCombo->addItem(f);
-    };
-    refreshScriptCombo();
-    // 切换到该页签时刷新
-    QObject::connect(tabs, &QTabWidget::currentChanged, shapeScriptCombo, [refreshScriptCombo, tabs](int index) {
-        if (tabs->tabText(index) == "图形+脚本")
-            refreshScriptCombo();
-    });
-
     // right vertical splitter containing top chart area and text
     QSplitter *rightSplit = new QSplitter(Qt::Vertical, &mainWindow);
     rightSplit->addWidget(topSplit);
@@ -382,50 +242,6 @@ int main(int argc, char *argv[])
             }
         }
     });
-
-    // 应用到图形按钮
-    QObject::connect(applyShapeScript, &QPushButton::clicked,
-        [k, luaEngine, shapeScriptCombo, paramName, paramValue]() {
-        int selIdx = k->selectedShapeIndex();
-        if (selIdx < 0) return;
-        auto &shapes = const_cast<QVector<KLineWidget::Shape>&>(k->shapes());
-
-        // 如果之前关联了脚本，先卸载旧脚本避免冲突
-        const QString &oldScript = shapes[selIdx].scriptName;
-        if (!oldScript.isEmpty()) {
-            QString oldScriptFile = oldScript;
-            if (oldScriptFile.endsWith(".lua", Qt::CaseInsensitive)) {
-                oldScriptFile = oldScriptFile.left(oldScriptFile.length() - 4);
-            }
-            luaEngine->unloadScript(oldScriptFile);
-        }
-
-        shapes[selIdx].scriptName = shapeScriptCombo->currentText().trimmed();
-        // 拼装参数 JSON
-        QStringList params;
-        for (int i = 0; i < 3; ++i) {
-            QString n = paramName[i]->text().trimmed();
-            QString v = paramValue[i]->text().trimmed();
-            if (!n.isEmpty() && !v.isEmpty())
-                params << QStringLiteral("\"%1\":%2").arg(n, v);
-        }
-        QString scriptParams = "{" + params.join(",") + "}";
-        shapes[selIdx].scriptParams = scriptParams;
-        k->setShapes(shapes);
-
-        // 加载新脚本到引擎
-        QString scriptFile = shapes[selIdx].scriptName;
-        if (!scriptFile.isEmpty()) {
-            if (scriptFile.endsWith(".lua", Qt::CaseInsensitive)) {
-                scriptFile = scriptFile.left(scriptFile.length() - 4);
-            }
-            ScriptBinding binding;
-            binding.symbol = k->symbol();
-            binding.timeframe = k->baseMinutes();
-            luaEngine->loadScript(scriptFile, scriptParams, binding);
-        }
-    });
-
 
     // find KLineWidget and create DataLoader
     KLineWidget *klineWidget = k;  // 使用上面已创建的 KLineWidget
@@ -603,56 +419,184 @@ int main(int argc, char *argv[])
     QObject::connect(k, &KLineWidget::crosshairIndexChanged, kjw, &IndicatorWidget::setCrosshairIndex);
     QObject::connect(k, &KLineWidget::crosshairIndexChanged, macdw, &MacdWidget::setCrosshairIndex);
 
-    // 连接图形选择信号 -> 更新图形信息页签和脚本下拉/参数
-    QObject::connect(k, &KLineWidget::shapeSelected, k, [k, shapeInfo, tabs, shapeScriptCombo, paramName, paramValue, refreshScriptCombo](int index) {
-        if (index < 0 || index >= k->shapes().size()) {
-            shapeInfo->setText("未选中图形");
-            return;
-        }
-        const auto &s = k->shapes()[index];
-        QString info;
-        info += QStringLiteral("名称: %1 | ").arg(s.name);
-        info += QStringLiteral("类型: %1 | ").arg(s.type);
-        info += QStringLiteral("颜色: %1\n").arg(s.color.isValid() ? s.color.name() : "#FFFFFF");
-        info += QStringLiteral("坐标: (%1,%2)->(%3,%4)")
-                    .arg(s.candleIdx1).arg(s.price1, 0, 'f', 2)
-                    .arg(s.candleIdx2).arg(s.price2, 0, 'f', 2);
-        // 脚本信息
+    // ================================================================
+    // 双击 shape -> 弹出完整属性对话框（含脚本配置）
+    // ================================================================
+    QObject::connect(k, &KLineWidget::shapeDoubleClicked, k,
+        [k, luaEngine](int index) {
+        if (index < 0 || index >= k->shapes().size()) return;
+        auto &shapes = const_cast<QVector<KLineWidget::Shape>&>(k->shapes());
+        auto &s = shapes[index];
+
+        // 创建对话框
+        QDialog dlg(k);
+        dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(s.name));
+        dlg.setMinimumWidth(380);
+        dlg.setStyleSheet(R"(
+            QGroupBox {
+                font: bold 11px;
+                border: 1px solid #555;
+                border-radius: 4px;
+                margin-top: 12px;
+                padding-top: 8px;
+                color: #ccc;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 6px;
+            }
+            QLineEdit, QComboBox {
+                padding: 3px 6px;
+                border: 1px solid #555;
+                border-radius: 3px;
+                background: #2d2d2d;
+                color: #e0e0e0;
+            }
+            QPushButton {
+                padding: 5px 14px;
+                border: 1px solid #3a7bc8;
+                border-radius: 3px;
+                background: #2d5a88;
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton:hover { background: #3a7bc8; }
+        )");
+
+        QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
+        mainLayout->setSpacing(6);
+
+        // ── 基本信息 ──
+        QGroupBox *infoGroup = new QGroupBox(QStringLiteral("基本信息"));
+        QVBoxLayout *infoLayout = new QVBoxLayout(infoGroup);
+        infoLayout->setSpacing(4);
+
+        QLabel *infoLbl = new QLabel;
+        QString infoText;
+        infoText += QStringLiteral("类型: %1\n").arg(s.type);
+        infoText += QStringLiteral("坐标: (%1, %2) → (%3, %4)")
+            .arg(s.candleIdx1).arg(s.price1, 0, 'f', 2)
+            .arg(s.candleIdx2).arg(s.price2, 0, 'f', 2);
+        if (s.tradePrice != 0.0)
+            infoText += QStringLiteral("\n成交价: %1").arg(s.tradePrice, 0, 'f', 2);
+        if (s.profit != 0.0)
+            infoText += QStringLiteral("\n盈亏: %1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
+        infoLbl->setText(infoText);
+        infoLbl->setStyleSheet("color: #bbb; font-size: 11px; padding: 4px;");
+        infoLayout->addWidget(infoLbl);
+        mainLayout->addWidget(infoGroup);
+
+        // ── 名称 ──
+        QHBoxLayout *nameRow = new QHBoxLayout;
+        nameRow->addWidget(new QLabel(QStringLiteral("名称:")));
+        QLineEdit *nameEdit = new QLineEdit(s.name);
+        nameRow->addWidget(nameEdit, 1);
+        mainLayout->addLayout(nameRow);
+
+        // ── 脚本配置 ──
+        QGroupBox *scriptGroup = new QGroupBox(QStringLiteral("脚本配置"));
+        QVBoxLayout *scriptLayout = new QVBoxLayout(scriptGroup);
+        scriptLayout->setSpacing(4);
+
+        // 脚本下拉
+        QHBoxLayout *scriptRow = new QHBoxLayout;
+        scriptRow->addWidget(new QLabel(QStringLiteral("脚本文件:")));
+        QComboBox *scriptCombo = new QComboBox;
+        scriptCombo->setEditable(true);
+        scriptCombo->setPlaceholderText("选择 .lua 脚本...");
+        // 填充脚本列表
+        QString scriptsDir = AppPaths::resolveDataDir("data/scripts");
+        QDir dir(scriptsDir);
+        auto files = dir.entryList({"*.lua"}, QDir::Files);
+        for (const auto &f : files)
+            scriptCombo->addItem(f);
         if (!s.scriptName.isEmpty()) {
-            info += QStringLiteral(" 脚本:%1").arg(s.scriptName);
+            int ci = scriptCombo->findText(s.scriptName);
+            if (ci >= 0) scriptCombo->setCurrentIndex(ci);
+            else scriptCombo->setCurrentText(s.scriptName);
         }
-        // 交易信息
-        if (s.tradePrice != 0.0) {
-            info += QStringLiteral(" 成交价:%1").arg(s.tradePrice, 0, 'f', 2);
-        }
-        if (s.profit != 0.0) {
-            info += QStringLiteral(" 盈亏:%1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
-        }
-        shapeInfo->setText(info);
-        // 自动填充脚本下拉和参数
-        refreshScriptCombo();
-        if (!s.scriptName.isEmpty()) {
-            int ci = shapeScriptCombo->findText(s.scriptName);
-            if (ci >= 0) shapeScriptCombo->setCurrentIndex(ci);
-            else shapeScriptCombo->setCurrentText(s.scriptName);
-        } else {
-            shapeScriptCombo->setCurrentIndex(-1);
-        }
-        // 解析 scriptParams JSON 填充参数行
+        scriptRow->addWidget(scriptCombo, 1);
+        scriptLayout->addLayout(scriptRow);
+
+        // 参数行
+        QLineEdit *pName[3], *pValue[3];
         for (int i = 0; i < 3; ++i) {
-            paramName[i]->clear();
-            paramValue[i]->clear();
+            QHBoxLayout *pRow = new QHBoxLayout;
+            QLabel *pLbl = new QLabel(QStringLiteral("参数 %1:").arg(i + 1));
+            pLbl->setFixedWidth(55);
+            pRow->addWidget(pLbl);
+            QLineEdit *ne = new QLineEdit;
+            ne->setPlaceholderText("名称");
+            QLineEdit *ve = new QLineEdit;
+            ve->setPlaceholderText("数值");
+            pRow->addWidget(ne, 1);
+            pRow->addWidget(ve, 1);
+            scriptLayout->addLayout(pRow);
+            pName[i] = ne;
+            pValue[i] = ve;
         }
+        // 解析现有参数填充
         if (!s.scriptParams.isEmpty() && s.scriptParams.contains(":")) {
             QJsonObject jo = QJsonDocument::fromJson(s.scriptParams.toUtf8()).object();
             int pi = 0;
             for (auto it = jo.begin(); it != jo.end() && pi < 3; ++it, ++pi) {
-                paramName[pi]->setText(it.key());
-                paramValue[pi]->setText(QString::number((*it).toDouble()));
+                pName[pi]->setText(it.key());
+                pValue[pi]->setText(QString::number((*it).toDouble()));
             }
         }
-        // 自动切换到图形+脚本页签
-        tabs->setCurrentIndex(1);
+        mainLayout->addWidget(scriptGroup);
+
+        mainLayout->addSpacing(6);
+
+        // ── 按钮 ──
+        QHBoxLayout *btnRow = new QHBoxLayout;
+        btnRow->addStretch();
+        QPushButton *cancelBtn = new QPushButton(QStringLiteral("取消"));
+        QPushButton *okBtn = new QPushButton(QStringLiteral("确定"));
+        btnRow->addWidget(cancelBtn);
+        btnRow->addWidget(okBtn);
+        mainLayout->addLayout(btnRow);
+
+        QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+        QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+
+        if (dlg.exec() == QDialog::Accepted) {
+            // 保存名称
+            s.name = nameEdit->text().trimmed();
+            // 如果之前关联了脚本，先卸载旧脚本
+            if (!s.scriptName.isEmpty()) {
+                QString oldFile = s.scriptName;
+                if (oldFile.endsWith(".lua", Qt::CaseInsensitive))
+                    oldFile = oldFile.left(oldFile.length() - 4);
+                luaEngine->unloadScript(oldFile);
+            }
+            // 更新脚本
+            QString newScript = scriptCombo->currentText().trimmed();
+            // 拼装参数 JSON
+            QStringList paramList;
+            for (int i = 0; i < 3; ++i) {
+                QString n = pName[i]->text().trimmed();
+                QString v = pValue[i]->text().trimmed();
+                if (!n.isEmpty() && !v.isEmpty())
+                    paramList << QStringLiteral("\"%1\":%2").arg(n, v);
+            }
+            QString newParams = "{" + paramList.join(",") + "}";
+            s.scriptName = newScript;
+            s.scriptParams = newParams;
+            k->setShapes(shapes);
+            // 加载新脚本
+            if (!newScript.isEmpty()) {
+                QString scriptFile = newScript;
+                if (scriptFile.endsWith(".lua", Qt::CaseInsensitive))
+                    scriptFile = scriptFile.left(scriptFile.length() - 4);
+                ScriptBinding binding;
+                binding.symbol = k->symbol();
+                binding.timeframe = k->baseMinutes();
+                luaEngine->loadScript(scriptFile, newParams, binding);
+            }
+            k->update();
+        }
     });
 
     // load data and initialize
