@@ -8,6 +8,9 @@
 #include <QPainterPath>
 #include <QToolTip>
 #include <QInputDialog>
+#include <QDialog>
+#include <QComboBox>
+#include <QPushButton>
 #include <QKeyEvent>
 #include <QColorDialog>
 #include <QLabel>
@@ -24,6 +27,7 @@
 KLineWidget::KLineWidget(QWidget *parent)
     : QWidget(parent), m_minPrice(0), m_maxPrice(0), m_scale(1.0), m_candleWidth(6.0), m_gap(2.0), m_startIndex(0), m_panning(false), m_crosshairVisible(false), m_rightPadding(80), m_timeframe(KLineWidget::TF_1m), m_baseMinutes(1)
     , m_toolMode(Tool_None), m_selectedShapeIndex(-1), m_drawing(false), m_draggingEndpoint(0), m_movingShape(false), m_nextShapeId(1)
+    , m_lastPrice(0), m_lastOpen(0), m_lastHigh(0), m_lastLow(0), m_lastVolume(0), m_prevClose(0), m_connected(false)
 {
     setMinimumSize(600, 500);
     setMouseTracking(true);
@@ -147,17 +151,33 @@ void KLineWidget::setData(const QVector<Candle> &data)
 
 void KLineWidget::setData(const QVector<Candle> &data, int baseMinutes)
 {
-    m_allData = data;
-    m_data = data;           // 直接使用，不做合并
+    m_data = data;           // 单数据源，不做合并
     m_baseMinutes = qMax(1, baseMinutes);
     m_timeframe = static_cast<Timeframe>(baseMinutes);
+
+    // 初始化实时跟踪变量（取自最后一根K线）
+    if (!m_data.isEmpty()) {
+        const Candle &last = m_data.last();
+        m_lastPrice = last.close;
+        m_lastOpen = last.open;
+        m_lastHigh = last.high;
+        m_lastLow = last.low;
+        m_lastVolume = last.volume;
+        m_prevClose = (m_data.size() >= 2) ? m_data[m_data.size() - 2].close : last.close;
+
+        // 显示实时标签
+        updateRealtimeLabel();
+    } else {
+        m_lastPrice = 0;
+        m_realtimeLabel->setVisible(false);
+    }
 
     m_startIndex = qMax(0, m_data.size() - visibleCount());
     updateRange();
     calculateMovingAverages();
 
     // 自动显示/隐藏"暂无数据"覆盖层
-    if (m_allData.isEmpty()) {
+    if (m_data.isEmpty()) {
         hideLoading();
         showNoData();
     } else {
@@ -165,13 +185,16 @@ void KLineWidget::setData(const QVector<Candle> &data, int baseMinutes)
     }
 
     // Load saved shapes for this symbol/timeframe
-    if (!m_symbol.isEmpty() && !m_allData.isEmpty()) {
+    if (!m_symbol.isEmpty() && !m_data.isEmpty()) {
         loadShapes();
     }
 
+    // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
+    ChartConfig::setLayout(mainChartRect(), totalPer(), m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
     emit dataAggregated(m_data);
     emit viewportChanged(m_startIndex, visibleCount());
     emit layoutChanged(m_startIndex, visibleCount(), totalPer(), candleBodyWidth(), mainChartRect());
+    update();
 }
 
 void KLineWidget::updateRange()
@@ -254,6 +277,28 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
         return;
     }
 
+    // Fixed-position tools: place shape at click position
+    if (m_toolMode == Tool_FixedDot || m_toolMode == Tool_FixedTriangle) {
+        QPointF norm = screenToNorm(event->pos());
+        Shape s;
+        s.attachment = Attach_Fixed;
+        s.normX = norm.x();
+        s.normY = norm.y();
+        switch (m_toolMode) {
+            case Tool_FixedDot:      s.type = Shape_FixedDot; break;
+            case Tool_FixedTriangle: s.type = Shape_FixedTriangle; break;
+            default: break;
+        }
+        s.text = QStringLiteral("Note");
+        s.color = QColor(255, 200, 100);
+        addShape(s);
+        saveShapes();
+        emit shapesChanged();
+        m_toolMode = Tool_None;
+        setCursor(Qt::ArrowCursor);
+        return;
+    }
+
     // Normal mode: allow selecting shapes to delete or edit
     if (m_toolMode == Tool_None) {
         if (event->button() == Qt::LeftButton) {
@@ -266,7 +311,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             // convert data coords to screen coords and check distance
             for (int i = 0; i < m_shapes.size(); ++i) {
                 const Shape &s = m_shapes[i];
-
+                // Skip Fixed shapes (selected by normX/normY separately)
+                if (s.attachment == Attach_Fixed) continue;
                 // convert data coordinates to screen coordinates
                 QPointF screenP1, screenP2;
                 dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
@@ -318,6 +364,25 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             } else if (clickedIdx >= 0) {
                 m_selectedShapeIndex = clickedIdx;
                 m_draggingEndpoint = 0;
+                m_movingShape = true;
+            } else {
+            // Try to select a Fixed shape by screen position
+            QRect cr = mainChartRect();
+            double closestDist = 20.0;
+            int closestIdx = -1;
+            for (int fi = 0; fi < m_shapes.size(); ++fi) {
+                const Shape &fs = m_shapes[fi];
+                if (fs.attachment != Attach_Fixed) continue;
+                QPoint fsScreen = normToScreen(fs.normX, fs.normY);
+                double d = QPointF(event->pos() - fsScreen).manhattanLength();
+                if (d < closestDist) { closestDist = d; closestIdx = fi; }
+            }
+            if (closestIdx >= 0) {
+                m_selectedShapeIndex = closestIdx;
+                m_draggingEndpoint = 0;
+                m_movingShape = true;
+                emit shapeSelected(closestIdx);
+                update();
             } else {
                 m_panning = true;
                 m_selectedShapeIndex = -1;
@@ -328,6 +393,7 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             update();
             emit shapeSelected(m_selectedShapeIndex);
             return;
+            }
         }
     }
 
@@ -350,6 +416,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
 
             for (int i = 0; i < m_shapes.size(); ++i) {
                 const Shape &s = m_shapes[i];
+                // Skip Fixed shapes (not draggable in drawing mode)
+                if (s.attachment == Attach_Fixed) continue;
                 QPointF screenP1, screenP2;
                 dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
                 dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
@@ -391,52 +459,17 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             ns.text.clear();
             ns.id = m_nextShapeId++;
             ns.name = QString("shape_%1").arg(ns.id);
-            ns.color = Qt::white;
+            if (ns.type == Shape_Trend)      ns.color = QColor(100, 200, 255);
+            else if (ns.type == Shape_Line)  ns.color = QColor(200, 200, 50);
+            else if (ns.type == Shape_UpTriangle)    ns.color = QColor(100, 255, 100);
+            else if (ns.type == Shape_DownTriangle)  ns.color = QColor(255, 100, 100);
+            else ns.color = Qt::white;
             // convert screen to data coordinates
             screenToDataCoord(pt, ns.candleIdx1, ns.price1);
             ns.candleIdx2 = ns.candleIdx1; ns.price2 = ns.price1;
 
-            // For trade shapes, snap to candle price and record trade info
-            if (ns.type == Shape_TradeBuy || ns.type == Shape_TradeSell ||
-                ns.type == Shape_TradeShort || ns.type == Shape_TradeCover) {
-                int idx = ns.candleIdx1;
-                if (idx >= 0 && idx < m_data.size()) {
-                    double tradePrice = m_data[idx].close;     // 默认取收盘价
-                    ns.price1 = tradePrice;
-                    ns.price2 = tradePrice;
-                    ns.tradePrice = tradePrice;
-                    ns.tradeTime = m_data[idx].date;
-                    ns.quantity = 1;
-                    ns.profit = 0.0;
-                    // 设置默认名称
-                    if (ns.type == Shape_TradeBuy) ns.name = QStringLiteral("做多买入");
-                    else if (ns.type == Shape_TradeSell) ns.name = QStringLiteral("做多卖出");
-                    else if (ns.type == Shape_TradeShort) ns.name = QStringLiteral("做空卖出");
-                    else if (ns.type == Shape_TradeCover) ns.name = QStringLiteral("做空买入");
-                    ns.text = ns.name;
-                }
-                m_drawing = false;
-            }
-            // For horizontal line, p2 has same price but different candle index
-            else if (ns.type == Shape_HLine || ns.type == Shape_VLine) {
-                // p1 and p2 at same position for now, user can drag to define
-                m_drawing = true;
-                m_draggingEndpoint = 2;
-            }
-            // For text shapes, immediately open the dialog to set text and color
-            else if (ns.type == Shape_Text) {
-                ShapeDialog dlg(this);
-                dlg.setShapeName(ns.name);
-                dlg.setShapeColor(ns.color);
-                if (dlg.exec() == QDialog::Accepted) {
-                    ns.name = dlg.getShapeName();
-                    ns.color = dlg.getShapeColor();
-                    ns.text = ns.name;
-                } else {
-                    return; // Cancel, don't create the shape
-                }
-                m_drawing = false;
-            } else {
+            // For Line/Trend: wait for second click
+            if (ns.type == Shape_Line || ns.type == Shape_Trend) {
                 m_drawing = true;
                 m_draggingEndpoint = 2;
             }
@@ -465,6 +498,14 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
     if (m_toolMode == Tool_None) {
         if (m_selectedShapeIndex >= 0 && (event->buttons() & Qt::LeftButton)) {
             Shape &s = m_shapes[m_selectedShapeIndex];
+            if (s.attachment == Attach_Fixed) {
+                // Dragging a Fixed shape: update normX/normY
+                QPointF norm = screenToNorm(event->pos());
+                s.normX = norm.x();
+                s.normY = norm.y();
+                update();
+                return;
+            }
             if (m_draggingEndpoint == 1) {
                 screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
                 update();
@@ -472,6 +513,19 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             }
             if (m_draggingEndpoint == 2) {
                 screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
+                update();
+                return;
+            }
+            if (m_movingShape) {
+                QPointF oldP1, oldP2;
+                dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
+                dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
+                QPointF delta = event->pos() - oldP1;
+                QPointF newP1 = oldP1 + delta;
+                QPointF newP2 = oldP2 + delta;
+                screenToDataCoord(newP1, s.candleIdx1, s.price1);
+                screenToDataCoord(newP2, s.candleIdx2, s.price2);
+                m_lastMousePos = event->pos();
                 update();
                 return;
             }
@@ -627,7 +681,17 @@ void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
     for (int i = 0; i < m_shapes.size(); ++i) {
         const Shape &s = m_shapes[i];
 
-        // convert data coordinates to screen coordinates
+        if (s.attachment == Attach_Fixed) {
+            // Fixed shapes: check proximity in screen coordinates
+            QPoint screenPt = normToScreen(s.normX, s.normY);
+            QPointF sf(screenPt);
+            double d = qSqrt((sf.x() - pt.x()) * (sf.x() - pt.x()) +
+                            (sf.y() - pt.y()) * (sf.y() - pt.y()));
+            if (d <= 15.0) { hitIndex = i; break; }
+            continue;
+        }
+
+        // KLineBound shapes: convert data coordinates to screen coordinates
         QPointF screenP1, screenP2;
         dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
         dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
@@ -826,6 +890,8 @@ void KLineWidget::paintEvent(QPaintEvent *event)
     // draw user shapes (lines, gestures, text) with selection handles
     for (int i = 0; i < m_shapes.size(); ++i) {
         const Shape &s = m_shapes.at(i);
+        // Skip Fixed shapes (drawn separately by drawFixedShapes)
+        if (s.attachment == Attach_Fixed) continue;
         // convert data coords to screen coords for drawing
         QPointF screenP1, screenP2;
         dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
@@ -904,151 +970,25 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             if (found) {
                 p.drawLine(screenP1, bestPt);
             }
-        } else if (s.type == Shape_GestureUp) {
-            // 画从 p1 到 p2 的线段，终点画三角形箭头
-            p.drawLine(screenP1, screenP2);
-            // 计算箭头方向（从 p1 指向 p2）
-            double angle = qAtan2(screenP2.y() - screenP1.y(), screenP2.x() - screenP1.x());
-            double arrowLen = 10.0;
-            double arrowAngle = 0.5; // ~28度
-            QPointF arrowP1(screenP2.x() - arrowLen * qCos(angle - arrowAngle),
-                           screenP2.y() - arrowLen * qSin(angle - arrowAngle));
-            QPointF arrowP2(screenP2.x() - arrowLen * qCos(angle + arrowAngle),
-                           screenP2.y() - arrowLen * qSin(angle + arrowAngle));
-            // 填充箭头三角形
-            QPolygonF arrowHead;
-            arrowHead << screenP2 << arrowP1 << arrowP2;
-            p.setBrush(sp.color());
-            p.drawPolygon(arrowHead);
-        } else if (s.type == Shape_GestureDown) {
-            // 画从 p1 到 p2 的线段，终点画三角形箭头（向下箭头）
-            p.drawLine(screenP1, screenP2);
-            double angle = qAtan2(screenP2.y() - screenP1.y(), screenP2.x() - screenP1.x());
-            double arrowLen = 10.0;
-            double arrowAngle = 0.5;
-            QPointF arrowP1(screenP2.x() - arrowLen * qCos(angle - arrowAngle),
-                           screenP2.y() - arrowLen * qSin(angle - arrowAngle));
-            QPointF arrowP2(screenP2.x() - arrowLen * qCos(angle + arrowAngle),
-                           screenP2.y() - arrowLen * qSin(angle + arrowAngle));
-            QPolygonF arrowHead;
-            arrowHead << screenP2 << arrowP1 << arrowP2;
-            p.setBrush(sp.color());
-            p.drawPolygon(arrowHead);
-        } else if (s.type == Shape_HLine) {
-            // 水平线：从主图左边缘到右边缘
-            QRect mr = mainChartRect();
-            double y = screenP1.y();
-            p.drawLine(mr.left(), (int)y, mr.right(), (int)y);
-        } else if (s.type == Shape_VLine) {
-            // 垂直线：从主图上边缘到下边缘
-            QRect mr = mainChartRect();
-            double x = screenP1.x();
-            p.drawLine((int)x, mr.top(), (int)x, mr.bottom());
-        } else if (s.type == Shape_TradeBuy || s.type == Shape_TradeCover) {
-            // 买入/平仓标记 (K线下方绿色向上箭头)
-            QColor tradeColor = (s.type == Shape_TradeBuy) ? QColor(0, 220, 0) : QColor(220, 100, 0);
-            QString label = (s.type == Shape_TradeBuy) ? QStringLiteral("B") : QStringLiteral("C");
-            QString sideName = (s.type == Shape_TradeBuy) ? QStringLiteral("做多买入") : QStringLiteral("做空买入");
-            
-            // 画向上箭头
-            double arrowSize = 8;
-            qreal cx = screenP1.x();
-            qreal baseY = screenP1.y() + 6; // K线下方
-            QPolygonF arrowHead;
-            arrowHead << QPointF(cx, baseY - arrowSize)
-                      << QPointF(cx - arrowSize * 0.6, baseY)
-                      << QPointF(cx + arrowSize * 0.6, baseY);
-            p.setBrush(tradeColor);
-            p.setPen(QPen(tradeColor, 1));
-            p.drawPolygon(arrowHead);
-            
-            // 画标签背景
-            QString tradeText = QString("%1 %2").arg(label).arg(s.tradePrice, 0, 'f', 2);
-            if (s.quantity > 1) tradeText += QString(" x%1").arg(s.quantity);
-            if (s.type == Shape_TradeCover && s.profit != 0.0) {
-                tradeText += QString(" %1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
-            }
-            p.setFont(QFont("Arial", 9, QFont::Bold));
-            QFontMetrics fm(p.font());
-            int tw = fm.horizontalAdvance(tradeText) + 8;
-            int th = fm.height() + 4;
-            QRectF labelRect(cx - tw/2, baseY + 2, tw, th);
-            p.setBrush(QColor(0, 0, 0, 200));
-            p.setPen(QPen(tradeColor, 1));
-            p.drawRoundedRect(labelRect, 3, 3);
-            
-            // 画文字
-            p.setPen(tradeColor);
-            p.drawText(labelRect, Qt::AlignCenter, tradeText);
-        } else if (s.type == Shape_TradeSell || s.type == Shape_TradeShort) {
-            // 卖出/做空标记 (K线上方红色向下箭头)
-            QColor tradeColor = (s.type == Shape_TradeSell) ? QColor(0, 220, 0) : QColor(220, 0, 0);
-            QString label = (s.type == Shape_TradeSell) ? QStringLiteral("S") : QStringLiteral("SS");
-            QString sideName = (s.type == Shape_TradeSell) ? QStringLiteral("做多卖出") : QStringLiteral("做空卖出");
-            
-            // 画向下箭头
-            double arrowSize = 8;
-            qreal cx = screenP1.x();
-            qreal baseY = screenP1.y() - 6; // K线上方
-            QPolygonF arrowHead;
-            arrowHead << QPointF(cx, baseY + arrowSize)
-                      << QPointF(cx - arrowSize * 0.6, baseY)
-                      << QPointF(cx + arrowSize * 0.6, baseY);
-            p.setBrush(tradeColor);
-            p.setPen(QPen(tradeColor, 1));
-            p.drawPolygon(arrowHead);
-            
-            // 画标签背景
-            QString tradeText = QString("%1 %2").arg(label).arg(s.tradePrice, 0, 'f', 2);
-            if (s.quantity > 1) tradeText += QString(" x%1").arg(s.quantity);
-            if (s.type == Shape_TradeSell && s.profit != 0.0) {
-                tradeText += QString(" %1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
-            }
-            p.setFont(QFont("Arial", 9, QFont::Bold));
-            QFontMetrics fm(p.font());
-            int tw = fm.horizontalAdvance(tradeText) + 8;
-            int th = fm.height() + 4;
-            QRectF labelRect(cx - tw/2, baseY - th - 2, tw, th);
-            p.setBrush(QColor(0, 0, 0, 200));
-            p.setPen(QPen(tradeColor, 1));
-            p.drawRoundedRect(labelRect, 3, 3);
-            
-            // 画文字
-            p.setPen(tradeColor);
-            p.drawText(labelRect, Qt::AlignCenter, tradeText);
-        } else if (s.type == Shape_Text) {
-            // draw text with point - use p1 as the center point
-            int textW = 160;
-            int textH = 24;
-            // Draw point at p1
-            p.setBrush(s.color.isValid() ? s.color : Qt::white);
-            p.setPen(s.color.isValid() ? s.color : Qt::white);
-            p.drawEllipse(screenP1, 4, 4);
-            
-            // Draw text relative to the point
-            QRectF tr(screenP1.x() - textW/2, screenP1.y() - textH - 5, textW, textH);
-            p.setFont(QFont("Arial", 10));
-            p.setPen(s.color.isValid() ? s.color : Qt::white);
-            p.drawText(tr, Qt::AlignCenter, s.text);
         }
         
         // draw endpoint handles for selected shape (but not for text - text is already complete)
-        if (i == m_selectedShapeIndex && s.type != Shape_Text) {
-            p.setBrush(Qt::yellow);
-            p.drawEllipse(screenP1, 4, 4);
-            p.drawEllipse(screenP2, 4, 4);
-        }
+
     }
     
+    // draw fixed-position shapes (not affected by zoom/pan)
+    drawFixedShapes(p);
+
     // draw moving averages
     drawMovingAverages(p);
     
     // ================================================================
     // 实时价格水平线（橙色虚线，最新 close 处）
+    // 只要有 pastPrice 就绘制（不限连接状态，模拟回放也能看到）
     // mainChartRect() 已在右侧预留空间，线画满主图区域
     // 价格标签放在主图右边缘外侧（预留区内）
     // ================================================================
-    if (m_connected && m_lastPrice > 0) {
+    if (m_lastPrice > 0) {
         QRect mr = mainChartRect();
         double priceRange = m_maxPrice - m_minPrice;
         if (priceRange > 0) {
@@ -1119,14 +1059,27 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             p.drawText(mainRect.right() + 5, m_crosshairPos.y() + textHeight / 2, priceStr);
         }
     }
+
+    // ================================================================
+    // 十字光标悬浮信息框（鼠标所在位置的详情）
+    // ================================================================
+    if (m_crosshairVisible) {
+        double totalPerX = (m_candleWidth * m_scale) + m_gap;
+        int idx = m_startIndex + int((m_crosshairPos.x() - mainRect.left()) / (totalPerX > 0 ? totalPerX : 1.0) + 0.5);
+        idx = qBound(0, idx, m_data.size()-1);
+        double priceRangeX = m_maxPrice - m_minPrice;
+        if (priceRangeX > 0) {
+            double ratio = double(mainRect.bottom() - m_crosshairPos.y()) / double(mainRect.height());
+            double price = m_minPrice + ratio * priceRangeX;
+            drawCrosshairInfoBox(p, idx, price);
+        }
+    }
 }
 
 void KLineWidget::setTimeframe(Timeframe tf)
 {
     m_timeframe = tf;
     m_baseMinutes = static_cast<int>(tf); // 同步 baseMinutes，确保推送过滤正确
-    // 不做本地合并，setData 会直接设置对应的数据
-    // m_data 和 m_allData 指向同一份数据
     m_startIndex = qMax(0, m_data.size() - visibleCount());
     updateRange();
     calculateMovingAverages();
@@ -1151,6 +1104,8 @@ void KLineWidget::setToolMode(ToolMode m)
     m_draggingEndpoint = 0;
     // set cursor according to mode
     if (m_toolMode == Tool_None) setCursor(Qt::ArrowCursor);
+    else if (m_toolMode == Tool_FixedDot || m_toolMode == Tool_FixedTriangle)
+        setCursor(Qt::PointingHandCursor);
     else setCursor(Qt::CrossCursor);
     update();
 }
@@ -1159,6 +1114,7 @@ void KLineWidget::deleteSelectedShape()
 {
     if (m_selectedShapeIndex >= 0 && m_selectedShapeIndex < m_shapes.size()) {
         m_shapes.removeAt(m_selectedShapeIndex);
+        saveShapes();
     }
     m_selectedShapeIndex = -1;
     update();
@@ -1169,6 +1125,7 @@ void KLineWidget::clearShapes()
 {
     m_shapes.clear();
     m_selectedShapeIndex = -1;
+    saveShapes();
     update();
     emit shapesChanged();
 }
@@ -1214,17 +1171,102 @@ void KLineWidget::editShapeProperties(int index)
     if (index < 0 || index >= m_shapes.size()) return;
     Shape &s = m_shapes[index];
 
-    ShapeDialog dlg(this);
-    dlg.setShapeName(s.name);
-    dlg.setShapeColor(s.color.isValid() ? s.color : Qt::white);
+    // ── 统一属性对话框 ──
+    QDialog dlg(this);
+    dlg.setWindowTitle(tr("图形属性"));
+    dlg.setMinimumWidth(380);
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
+    mainLayout->setSpacing(10);
+
+    // 名称
+    mainLayout->addWidget(new QLabel(tr("名称:")));
+    QLineEdit *nameEdit = new QLineEdit(s.name);
+    nameEdit->selectAll();
+    mainLayout->addWidget(nameEdit);
+
+    // 文本（仅 Fixed 图形）
+    QLineEdit *textEdit = nullptr;
+    if (s.attachment == Attach_Fixed) {
+        mainLayout->addWidget(new QLabel(tr("文本内容:")));
+        textEdit = new QLineEdit(s.text);
+        mainLayout->addWidget(textEdit);
+    }
+
+    // 颜色
+    mainLayout->addWidget(new QLabel(tr("颜色:")));
+    QHBoxLayout *colorRow = new QHBoxLayout;
+    QLabel *colorPreview = new QLabel;
+    colorPreview->setFixedSize(50, 28);
+    colorPreview->setAutoFillBackground(true);
+    QColor curColor = s.color.isValid() ? s.color : Qt::white;
+    QPalette pal = colorPreview->palette();
+    pal.setColor(QPalette::Window, curColor);
+    colorPreview->setPalette(pal);
+    QPushButton *colorBtn = new QPushButton(tr("选择颜色"));
+    colorRow->addWidget(colorPreview);
+    colorRow->addWidget(colorBtn);
+    colorRow->addStretch();
+    mainLayout->addLayout(colorRow);
+
+    // 脚本
+    mainLayout->addWidget(new QLabel(tr("关联脚本 (可选):")));
+    QComboBox *scriptCombo = new QComboBox;
+    scriptCombo->setEditable(true);
+    scriptCombo->setPlaceholderText(tr("选择 .lua 脚本..."));
+    QString scriptsDir = QCoreApplication::applicationDirPath() + "/data/scripts";
+    QDir sdir(scriptsDir);
+    if (sdir.exists()) {
+        auto files = sdir.entryList({"*.lua"}, QDir::Files);
+        for (const auto &f : files) scriptCombo->addItem(f);
+    }
+    if (!s.scriptName.isEmpty()) {
+        int ci = scriptCombo->findText(s.scriptName);
+        if (ci >= 0) scriptCombo->setCurrentIndex(ci);
+        else scriptCombo->setCurrentText(s.scriptName);
+    }
+    mainLayout->addWidget(scriptCombo);
+
+    // 脚本参数
+    mainLayout->addWidget(new QLabel(tr("脚本参数 (JSON):")));
+    QLineEdit *paramEdit = new QLineEdit(s.scriptParams);
+    mainLayout->addWidget(paramEdit);
+
+    // OK/Cancel
+    mainLayout->addSpacing(10);
+    QHBoxLayout *btnRow = new QHBoxLayout;
+    btnRow->addStretch();
+    QPushButton *okBtn = new QPushButton(tr("确定"));
+    QPushButton *cancelBtn = new QPushButton(tr("取消"));
+    btnRow->addWidget(okBtn);
+    btnRow->addWidget(cancelBtn);
+    mainLayout->addLayout(btnRow);
+
+    // 连接信号
+    QObject::connect(colorBtn, &QPushButton::clicked, [&curColor, colorPreview, &dlg]() {
+        QColor c = QColorDialog::getColor(curColor, &dlg, tr("选择颜色"));
+        if (c.isValid()) {
+            curColor = c;
+            QPalette pal = colorPreview->palette();
+            pal.setColor(QPalette::Window, curColor);
+            colorPreview->setPalette(pal);
+        }
+    });
+    QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+    QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
 
     if (dlg.exec() == QDialog::Accepted) {
-        s.name = dlg.getShapeName();
-        s.color = dlg.getShapeColor();
-        // For text shapes, update the text content from name
-        if (s.type == Shape_Text) {
-            s.text = s.name;
+        s.name = nameEdit->text().trimmed();
+        s.color = curColor;
+        if (textEdit) s.text = textEdit->text().trimmed();
+
+        QString newScript = scriptCombo->currentText().trimmed();
+        if (newScript != s.scriptName && !s.scriptName.isEmpty()) {
+            // Script change - unload handled externally
         }
+        s.scriptName = newScript;
+        s.scriptParams = paramEdit->text().trimmed();
+
         update();
         emit shapesChanged();
     }
@@ -1518,12 +1560,11 @@ void KLineWidget::snapCrosshairTo(const QPointF &pos)
 
 void KLineWidget::updateRealtimeCandle(const Candle &c)
 {
-    if (m_allData.isEmpty()) {
+    if (m_data.isEmpty()) {
         // 首根 K 线，直接追加
-        m_allData.append(c);
-        m_data = m_allData;
+        m_data.append(c);
     } else {
-        const Candle &last = m_allData.last();
+        const Candle &last = m_data.last();
         qint64 diffSecs = qAbs(last.date.secsTo(c.date));
 
         // 高周期（>=60min）允许 2 分钟时间戳偏差，低周期允许 30 秒
@@ -1531,36 +1572,44 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
 
         if (diffSecs <= toleranceSecs) {
             // 同根更新（时间戳在容差范围内视为同一根 K 线）
-            // 只更新 m_allData 的最后一项和 m_data 的最后一项
-            m_allData.last() = c;
-            if (!m_data.isEmpty()) {
-                m_data.last() = c;
-            }
+            m_data.last() = c;
         } else if (c.date > last.date) {
             // 新 K 线（确保时间确实更晚才追加）
-            m_allData.append(c);
-            m_data = m_allData;
+            m_data.append(c);
         } else {
             return; // 旧数据忽略
         }
     }
 
-    updateRange();
-    calculateMovingAverages();
+    // 记录上一根收盘价（用于涨跌计算）
+    if (m_data.size() >= 2) {
+        m_prevClose = m_data[m_data.size() - 2].close;
+    }
+
     m_lastPrice = c.close;
     m_lastOpen = c.open;
+    m_lastHigh = c.high;
+    m_lastLow = c.low;
+    m_lastVolume = c.volume;
     updateRealtimeLabel();
 
-    // 正确判断 newBar：当前时间 > 最后一根 K 线时间（只有在真正的新 K 线时才为 true）
-    bool newBar = (m_allData.size() > 1 && c.date > m_allData.last().date);
-    // 通知 Lua 脚本引擎
-    emit candleUpdated(c, newBar);
-
-    // 自动滚动到最新
-    int visCount = visibleCount();
-    if (m_startIndex + visCount < m_data.size()) {
-        m_startIndex = qMax(0, m_data.size() - visCount);
+    // ======== 先自动滚动到最新，再计算价格范围 ========
+    {
+        int visCount = visibleCount();
+        if (m_startIndex + visCount < m_data.size()) {
+            m_startIndex = qMax(0, m_data.size() - visCount);
+        }
     }
+    updateRange();
+    calculateMovingAverages();
+
+    // ======== newBar 修复：比较上一根K线（而非自身）========
+    bool newBar = false;
+    if (m_data.size() >= 2) {
+        const Candle &prev = m_data[m_data.size() - 2];
+        newBar = (c.date > prev.date);
+    }
+    emit candleUpdated(c, newBar);
 
     // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
     ChartConfig::setLayout(mainChartRect(), totalPer(), m_startIndex, visibleCount(), candleBodyWidth(), m_rightPadding);
@@ -1572,20 +1621,20 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
 
 int KLineWidget::findCandleIndexByTime(const QDateTime &time) const
 {
-    // binary search on m_allData
-    if (m_allData.isEmpty() || !time.isValid()) return -1;
-    int lo = 0, hi = m_allData.size() - 1;
+    // binary search on m_data
+    if (m_data.isEmpty() || !time.isValid()) return -1;
+    int lo = 0, hi = m_data.size() - 1;
     while (lo <= hi) {
         int mid = (lo + hi) / 2;
-        if (m_allData[mid].date == time) return mid;
-        if (m_allData[mid].date < time) lo = mid + 1;
+        if (m_data[mid].date == time) return mid;
+        if (m_data[mid].date < time) lo = mid + 1;
         else hi = mid - 1;
     }
     // not found, return nearest
     if (hi < 0) return 0;
-    if (lo >= m_allData.size()) return m_allData.size() - 1;
+    if (lo >= m_data.size()) return m_data.size() - 1;
     // return the closer one
-    if (qAbs(m_allData[lo].date.msecsTo(time)) < qAbs(m_allData[hi].date.msecsTo(time)))
+    if (qAbs(m_data[lo].date.msecsTo(time)) < qAbs(m_data[hi].date.msecsTo(time)))
         return lo;
     return hi;
 }
@@ -1594,6 +1643,23 @@ void KLineWidget::setSymbol(const QString &s)
 {
     m_symbol = s;
     updateRealtimeLabel();
+}
+
+QPointF KLineWidget::screenToNorm(const QPoint &screenPt) const
+{
+    QRect cr = mainChartRect();
+    if (cr.width() <= 0 || cr.height() <= 0) return QPointF(0.5, 0.5);
+    double nx = double(screenPt.x() - cr.left()) / cr.width();
+    double ny = double(screenPt.y() - cr.top()) / cr.height();
+    return QPointF(qBound(0.0, nx, 1.0), qBound(0.0, ny, 1.0));
+}
+
+QPoint KLineWidget::normToScreen(double normX, double normY) const
+{
+    QRect cr = mainChartRect();
+    int sx = cr.left() + int(normX * cr.width());
+    int sy = cr.top() + int(normY * cr.height());
+    return QPoint(sx, sy);
 }
 
 void KLineWidget::setConnectionStatus(bool connected)
@@ -1650,6 +1716,12 @@ int KLineWidget::addShape(const Shape &s)
 {
     Shape ns = s;
     ns.id = m_nextShapeId++;
+    ns.selected = false;
+    // Set default color if not valid
+    if (!ns.color.isValid()) {
+        ns.color = (ns.attachment == Attach_Fixed)
+            ? QColor(255, 200, 100) : QColor(Qt::white);
+    }
     m_shapes.append(ns);
     update();
     emit shapesChanged();
@@ -1661,6 +1733,7 @@ QString KLineWidget::shapesFilePath() const
     if (m_symbol.isEmpty()) return {};
     // data/shapes/{symbol}_{tf}.json
     QString dir = QCoreApplication::applicationDirPath() + "/data/shapes";
+    QDir().mkpath(dir);
     return dir + "/" + m_symbol + "_" + QString::number(m_baseMinutes) + ".json";
 }
 
@@ -1668,6 +1741,8 @@ void KLineWidget::saveShapes()
 {
     QString path = shapesFilePath();
     if (path.isEmpty()) return;
+    QDir().mkpath(QFileInfo(path).absolutePath());
+    emit shapesSaved(m_symbol, m_baseMinutes);
     if (m_shapes.isEmpty()) {
         // empty shapes: remove file if exists
         QFile::remove(path);
@@ -1679,6 +1754,7 @@ void KLineWidget::saveShapes()
         QJsonObject obj;
         obj["id"] = s.id;
         obj["type"] = static_cast<int>(s.type);
+        obj["attachment"] = static_cast<int>(s.attachment);
         obj["name"] = s.name;
         obj["text"] = s.text;
         obj["color"] = s.color.isValid() ? s.color.name() : "#FFFFFF";
@@ -1686,10 +1762,9 @@ void KLineWidget::saveShapes()
         obj["price1"] = s.price1;
         obj["candleIdx2"] = s.candleIdx2;
         obj["price2"] = s.price2;
-        obj["tradePrice"] = s.tradePrice;
-        obj["tradeTime"] = s.tradeTime.isValid() ? s.tradeTime.toString(Qt::ISODate) : "";
-        obj["quantity"] = s.quantity;
-        obj["profit"] = s.profit;
+        obj["normX"] = s.normX;
+        obj["normY"] = s.normY;
+        obj["ownerShapeId"] = s.ownerShapeId;
         obj["scriptName"] = s.scriptName;
         obj["scriptParams"] = s.scriptParams;
         arr.append(obj);
@@ -1713,6 +1788,8 @@ void KLineWidget::saveShapes()
 void KLineWidget::loadShapes()
 {
     QString path = shapesFilePath();
+    m_shapes.clear();
+    m_selectedShapeIndex = -1;
     if (path.isEmpty() || !QFile::exists(path)) return;
 
     QFile f(path);
@@ -1731,6 +1808,7 @@ void KLineWidget::loadShapes()
         Shape s;
         s.id = obj["id"].toInt();
         s.type = static_cast<ShapeType>(obj["type"].toInt());
+        s.attachment = static_cast<ShapeAttachment>(obj["attachment"].toInt(0));
         s.name = obj["name"].toString();
         s.text = obj["text"].toString();
         s.color = QColor(obj["color"].toString("#FFFFFF"));
@@ -1738,11 +1816,12 @@ void KLineWidget::loadShapes()
         s.price1 = obj["price1"].toDouble();
         s.candleIdx2 = obj["candleIdx2"].toInt();
         s.price2 = obj["price2"].toDouble();
-        s.tradePrice = obj["tradePrice"].toDouble();
+        s.normX = obj["normX"].toDouble(0.5);
+        s.normY = obj["normY"].toDouble(0.5);
+        s.ownerShapeId = obj["ownerShapeId"].toInt(0);
         QString ts = obj["tradeTime"].toString();
         s.tradeTime = ts.isEmpty() ? QDateTime() : QDateTime::fromString(ts, Qt::ISODate);
         s.quantity = obj["quantity"].toInt();
-        s.profit = obj["profit"].toDouble();
         s.scriptName = obj["scriptName"].toString();
         s.scriptParams = obj["scriptParams"].toString();
         s.selected = false;
@@ -1753,4 +1832,138 @@ void KLineWidget::loadShapes()
     update();
     emit shapesChanged();
     emit shapesLoaded();
+}
+// ============================================================
+// 十字光标悬浮信息框绘制
+// 鼠标悬停处显示 O H L C V 详情框
+// ============================================================
+void KLineWidget::drawCrosshairInfoBox(QPainter &p, int candleIdx, double price)
+{
+    if (candleIdx < 0 || candleIdx >= m_data.size()) return;
+    const Candle &c = m_data.at(candleIdx);
+
+    // 构建多行文本
+    QString timeStr = c.date.toString("yyyy-MM-dd HH:mm");
+    double change = c.close - c.open;
+    double pct = (c.open != 0) ? (change / c.open) * 100.0 : 0.0;
+    QString changeStr = (change >= 0 ? "+" : "") + QString::number(change, 'f', 2)
+                        + " (" + (change >= 0 ? "+" : "") + QString::number(pct, 'f', 2) + "%)";
+
+    QStringList lines;
+    lines << timeStr
+          << QString("O: %1  H: %2").arg(c.open, 0, 'f', 2).arg(c.high, 0, 'f', 2)
+          << QString("L: %1  C: %2").arg(c.low, 0, 'f', 2).arg(c.close, 0, 'f', 2)
+          << QString("V: %1").arg(c.volume, 0, 'f', 0)
+          << changeStr;
+
+    // 计算文本框尺寸
+    p.setFont(QFont("Consolas", 9, QFont::Bold));
+    QFontMetrics fm(p.font());
+    int maxW = 0;
+    int totalH = 0;
+    int lineH = fm.height() + 2;
+    for (const auto &l : lines) {
+        int lw = fm.horizontalAdvance(l) + 12;
+        if (lw > maxW) maxW = lw;
+        totalH += lineH;
+    }
+    totalH += 6;
+
+    // 定位：尽量在十字光标附近，避免超出窗口
+    int boxX = m_crosshairPos.x() + 15;
+    int boxY = m_crosshairPos.y() - totalH / 2;
+    if (boxX + maxW > width()) boxX = m_crosshairPos.x() - maxW - 15;
+    if (boxY < 5) boxY = 5;
+    if (boxY + totalH > height() - 5) boxY = height() - totalH - 5;
+
+    // 背景框
+    p.setBrush(QColor(20, 20, 30, 220));
+    p.setPen(QPen(QColor(255, 255, 0, 180), 1));
+    QRectF box(boxX, boxY, maxW, totalH);
+    p.drawRoundedRect(box, 5, 5);
+
+    // 文本
+    int ty = boxY + 5;
+    for (int i = 0; i < lines.size(); ++i) {
+        QColor color;
+        if (i == 0) color = QColor(255, 220, 100);           // 时间 = 金色
+        else if (i == lines.size() - 1) {                    // 涨跌 = 红/绿
+            color = (change >= 0) ? QColor(220, 20, 60) : QColor(0, 200, 0);
+        } else {
+            color = QColor(200, 200, 200);
+        }
+        p.setPen(color);
+        p.drawText(boxX + 6, ty, maxW - 12, lineH, Qt::AlignLeft | Qt::AlignVCenter, lines[i]);
+        ty += lineH;
+    }
+}
+
+// ============================================================
+// Fixed-position shape drawing (not affected by zoom/pan)
+// ============================================================
+// Fixed-position shape drawing (not affected by zoom/pan)
+// ============================================================
+void KLineWidget::drawFixedShapes(QPainter &p)
+{
+    QRect cr = mainChartRect();
+    if (cr.isEmpty()) return;
+
+    for (int i = 0; i < m_shapes.size(); ++i) {
+        const Shape &s = m_shapes[i];
+        if (s.attachment != Attach_Fixed) continue;
+
+        int sx = cr.left() + int(s.normX * cr.width());
+        int sy = cr.top() + int(s.normY * cr.height());
+        QPointF center(sx, sy);
+
+        QColor sc = s.color.isValid() ? s.color : QColor(255, 200, 100);
+        QPen pen(sc, 2);
+        p.setPen(pen);
+
+        bool isSelected = (i == m_selectedShapeIndex);
+
+        QString label = s.text.isEmpty() ? s.name : s.text;
+        if (label.isEmpty()) label = QStringLiteral("Note");
+        QFont f = p.font();
+        f.setPointSize(10);
+        if (isSelected) f.setBold(true);
+        p.setFont(f);
+        QFontMetrics fm(f);
+        int tw = fm.horizontalAdvance(label) + 8;
+        int th = fm.height() + 4;
+
+        if (s.type == Shape_FixedDot) {
+            double r = isSelected ? 6 : 4;
+            p.setBrush(sc);
+            p.setPen(Qt::NoPen);
+            p.drawEllipse(center, r, r);
+            QRectF bg(sx + r + 4, sy - th / 2, tw, th);
+            p.setBrush(QColor(0, 0, 0, 160));
+            p.setPen(Qt::NoPen);
+            p.drawRoundedRect(bg, 3, 3);
+            p.setPen(pen);
+            p.drawText(bg, Qt::AlignCenter, label);
+        } else if (s.type == Shape_FixedTriangle) {
+            double sz = isSelected ? 8 : 6;
+            p.setBrush(sc);
+            p.setPen(Qt::NoPen);
+            QPolygonF tri;
+            tri << QPointF(sx, sy - sz)
+                << QPointF(sx - sz * 0.8, sy + sz * 0.6)
+                << QPointF(sx + sz * 0.8, sy + sz * 0.6);
+            p.drawPolygon(tri);
+            QRectF bg(sx + sz + 6, sy - th / 2, tw, th);
+            p.setBrush(QColor(0, 0, 0, 160));
+            p.setPen(Qt::NoPen);
+            p.drawRoundedRect(bg, 3, 3);
+            p.setPen(pen);
+            p.drawText(bg, Qt::AlignCenter, label);
+        }
+
+        if (isSelected) {
+            p.setPen(QPen(QColor(0, 255, 255), 1, Qt::DashLine));
+            p.setBrush(Qt::NoBrush);
+            p.drawEllipse(center, 14, 14);
+        }
+    }
 }
