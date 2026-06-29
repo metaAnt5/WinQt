@@ -296,7 +296,7 @@ static int lua_core_shape_add(lua_State *L)
 }
 
 // core.get_shape_price(scriptName) -> number (price1 of the shape) or nil
-// 根据脚本名称查找关联的图形，返回其 price1
+// 根据脚本名称查找关联的图形，返回其 price1（水平线价格）
 static int lua_core_get_shape_price(lua_State *L)
 {
     KLineWidget *kw = getKLineWidget(L);
@@ -315,10 +315,58 @@ static int lua_core_get_shape_price(lua_State *L)
     const auto shapes = kw->shapes();
     for (const auto &s : shapes) {
         if (s.scriptName == sn || s.scriptName == sn + ".lua") {
-            // 返回 price1（水平线就是线的价格）
             lua_pushnumber(L, s.price1);
             return 1;
         }
+    }
+
+    lua_pushnil(L);
+    return 1;
+}
+
+// core.get_line_price(scriptName, candleIdx) -> number or nil
+// 计算关联图形在指定 K 线索引 candleIdx 处的价格：
+//   - Line（水平线）：返回 price1 固定值
+//   - Trend（趋势线）：在 (candleIdx1,price1) ↔ (candleIdx2,price2) 之间线性插值
+//   - 其他类型：返回 price1
+static int lua_core_get_line_price(lua_State *L)
+{
+    KLineWidget *kw = getKLineWidget(L);
+    if (!kw) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    const char *scriptName = luaL_checkstring(L, 1);
+    int candleIdx = (int)luaL_checkinteger(L, 2);
+    if (!scriptName) {
+        lua_pushnil(L);
+        return 1;
+    }
+
+    QString sn = QString::fromUtf8(scriptName);
+    const auto shapes = kw->shapes();
+    for (const auto &s : shapes) {
+        if (s.scriptName != sn && s.scriptName != sn + ".lua")
+            continue;
+
+        // Trend 线：两点之间线性插值
+        if (s.type == KLineWidget::Shape_Trend) {
+            int dx = s.candleIdx2 - s.candleIdx1;
+            if (dx == 0) {
+                // 同一点，直接返回 price1
+                lua_pushnumber(L, s.price1);
+            } else {
+                double t = double(candleIdx - s.candleIdx1) / double(dx);
+                double price = s.price1 + (s.price2 - s.price1) * t;
+                lua_pushnumber(L, price);
+            }
+            return 1;
+        }
+
+        // Line（水平线）和其他：返回固定价格 price1
+        lua_pushnumber(L, s.price1);
+        return 1;
     }
 
     lua_pushnil(L);
@@ -518,6 +566,7 @@ void LuaScriptEngine::registerCoreAPI()
         {"shape_add",   lua_core_shape_add},
         {"shape_remove", lua_core_shape_remove},
         {"get_shape_price", lua_core_get_shape_price},
+        {"get_line_price",  lua_core_get_line_price},
         {"shape_add_fixed", lua_core_shape_add_fixed},
         {"child_add", lua_core_child_add},
         {"child_remove", lua_core_child_remove},
@@ -691,8 +740,11 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
         lua_pushstring(L, "low"); lua_pushnumber(L, candle.low); lua_settable(L, -3);
         lua_pushstring(L, "close"); lua_pushnumber(L, candle.close); lua_settable(L, -3);
         lua_pushstring(L, "volume"); lua_pushnumber(L, candle.volume); lua_settable(L, -3);
-        // index: 0=最新（新 K 线就是最新一根）
-        lua_pushstring(L, "index"); lua_pushinteger(L, 0); lua_settable(L, -3);
+        // index: 当前 K 线在 allData 中的真实索引
+        KLineWidget *kw_for_idx = this->klineWidget();
+        int realIdx = (kw_for_idx && !kw_for_idx->allData().isEmpty())
+                      ? kw_for_idx->allData().size() - 1 : 0;
+        lua_pushstring(L, "index"); lua_pushinteger(L, realIdx); lua_settable(L, -3);
 
         // 第二个参数：脚本名称（用于 core.get_shape_price）
         lua_pushstring(L, scriptName.toUtf8().constData());
