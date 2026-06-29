@@ -234,6 +234,23 @@ static int lua_core_alert(lua_State *L)
     return 0;
 }
 
+// core.send_feishu(msg) — 异步发送飞书消息（发送完不用管）
+static int lua_core_send_feishu(lua_State *L)
+{
+    const char *msg = luaL_checkstring(L, 1);
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    if (!engine) return 0;
+    auto sender = engine->feishuSender();
+    if (!sender) {
+        qDebug() << "[Lua send_feishu] FeishuSender not initialized, skipping";
+        return 0;
+    }
+    // 回放模式不发送
+    if (engine->isReplayMode()) return 0;
+    sender->SendMarkdown(msg, nullptr);
+    return 0;
+}
+
 // core.shape_add(type, candleIdx1, price1, candleIdx2, price2, name) -> int (shape id)
 static int lua_core_shape_add(lua_State *L)
 {
@@ -497,6 +514,7 @@ void LuaScriptEngine::registerCoreAPI()
         {"highest",     lua_core_highest},
         {"lowest",      lua_core_lowest},
         {"alert",       lua_core_alert},
+        {"send_feishu", lua_core_send_feishu},
         {"shape_add",   lua_core_shape_add},
         {"shape_remove", lua_core_shape_remove},
         {"get_shape_price", lua_core_get_shape_price},
