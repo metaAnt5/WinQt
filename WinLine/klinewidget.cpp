@@ -504,13 +504,12 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
 
 void KLineWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    // Normal mode: allow dragging endpoints to edit KLineBound shapes
+    // Normal mode: allow dragging endpoints and moving KLineBound shapes
     if (m_toolMode == Tool_None) {
         if (m_selectedShapeIndex >= 0 && (event->buttons() & Qt::LeftButton)) {
             Shape &s = m_shapes[m_selectedShapeIndex];
             // Fixed shapes: not draggable, just selected
             if (s.attachment == Attach_Fixed) return;
-            // Allow endpoint dragging only (no full shape moving)
             if (m_draggingEndpoint == 1) {
                 screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
                 update();
@@ -518,6 +517,20 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             }
             if (m_draggingEndpoint == 2) {
                 screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
+                update();
+                return;
+            }
+            // moving the entire shape (clicked on line body or triangle body)
+            if (m_movingShape) {
+                QPointF delta = QPointF(event->pos()) - QPointF(m_lastMousePos);
+                QPointF oldP1, oldP2;
+                dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
+                dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
+                QPointF newP1 = oldP1 + delta;
+                QPointF newP2 = oldP2 + delta;
+                screenToDataCoord(newP1, s.candleIdx1, s.price1);
+                screenToDataCoord(newP2, s.candleIdx2, s.price2);
+                m_lastMousePos = event->pos();
                 update();
                 return;
             }
@@ -641,7 +654,12 @@ void KLineWidget::mouseReleaseEvent(QMouseEvent *event)
             m_panning = false;
             setCursor(Qt::ArrowCursor);
         }
+        // Dragging just ended: save shapes
+        if (m_draggingEndpoint > 0 || m_movingShape) {
+            saveShapes();
+        }
         m_draggingEndpoint = 0;
+        m_movingShape = false;
         update();
         return;
     }
