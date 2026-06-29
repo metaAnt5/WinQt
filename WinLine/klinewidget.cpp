@@ -970,9 +970,29 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             if (found) {
                 p.drawLine(screenP1, bestPt);
             }
+        } else if (s.type == Shape_UpTriangle) {
+            // Draw up triangle centered at midpoint between p1 and p2
+            double cx = (screenP1.x() + screenP2.x()) / 2.0;
+            double cy = (screenP1.y() + screenP2.y()) / 2.0;
+            double sz = 10.0;
+            QPolygonF tri;
+            tri << QPointF(cx, cy - sz)
+                << QPointF(cx - sz * 0.8, cy + sz * 0.6)
+                << QPointF(cx + sz * 0.8, cy + sz * 0.6);
+            p.setBrush(s.color.isValid() ? s.color : QColor(100, 255, 100));
+            p.drawPolygon(tri);
+        } else if (s.type == Shape_DownTriangle) {
+            // Draw down triangle centered at midpoint between p1 and p2
+            double cx = (screenP1.x() + screenP2.x()) / 2.0;
+            double cy = (screenP1.y() + screenP2.y()) / 2.0;
+            double sz = 10.0;
+            QPolygonF tri;
+            tri << QPointF(cx, cy + sz)
+                << QPointF(cx - sz * 0.8, cy - sz * 0.6)
+                << QPointF(cx + sz * 0.8, cy - sz * 0.6);
+            p.setBrush(s.color.isValid() ? s.color : QColor(255, 100, 100));
+            p.drawPolygon(tri);
         }
-        
-        // draw endpoint handles for selected shape (but not for text - text is already complete)
 
     }
     
