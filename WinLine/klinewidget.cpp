@@ -361,11 +361,20 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             if (clickedIdx >= 0 && dragEndpoint > 0) {
                 m_selectedShapeIndex = clickedIdx;
                 m_draggingEndpoint = dragEndpoint;
-            } else if (clickedIdx >= 0) {
+                m_lastMousePos = event->pos();
+                update();
+                emit shapeSelected(m_selectedShapeIndex);
+                return;
+            }
+            if (clickedIdx >= 0) {
                 m_selectedShapeIndex = clickedIdx;
                 m_draggingEndpoint = 0;
                 m_movingShape = true;
-            } else {
+                m_lastMousePos = event->pos();
+                update();
+                emit shapeSelected(m_selectedShapeIndex);
+                return;
+            }
             // Try to select a Fixed shape by screen position
             QRect cr = mainChartRect();
             double closestDist = 20.0;
@@ -381,19 +390,20 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 m_selectedShapeIndex = closestIdx;
                 m_draggingEndpoint = 0;
                 m_movingShape = true;
+                m_lastMousePos = event->pos();
                 emit shapeSelected(closestIdx);
                 update();
-            } else {
-                m_panning = true;
-                m_selectedShapeIndex = -1;
-                m_draggingEndpoint = 0;
-                setCursor(Qt::ClosedHandCursor);
+                return;
             }
+            // No shape hit: start panning
+            m_panning = true;
+            m_selectedShapeIndex = -1;
+            m_draggingEndpoint = 0;
             m_lastMousePos = event->pos();
+            setCursor(Qt::ClosedHandCursor);
             update();
-            emit shapeSelected(m_selectedShapeIndex);
+            emit shapeSelected(-1);
             return;
-            }
         }
     }
 
@@ -494,18 +504,13 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
 
 void KLineWidget::mouseMoveEvent(QMouseEvent *event)
 {
-    // Normal mode: allow dragging endpoints to edit shapes
+    // Normal mode: allow dragging endpoints to edit KLineBound shapes
     if (m_toolMode == Tool_None) {
         if (m_selectedShapeIndex >= 0 && (event->buttons() & Qt::LeftButton)) {
             Shape &s = m_shapes[m_selectedShapeIndex];
-            if (s.attachment == Attach_Fixed) {
-                // Dragging a Fixed shape: update normX/normY
-                QPointF norm = screenToNorm(event->pos());
-                s.normX = norm.x();
-                s.normY = norm.y();
-                update();
-                return;
-            }
+            // Fixed shapes: not draggable, just selected
+            if (s.attachment == Attach_Fixed) return;
+            // Allow endpoint dragging only (no full shape moving)
             if (m_draggingEndpoint == 1) {
                 screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
                 update();
@@ -513,19 +518,6 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             }
             if (m_draggingEndpoint == 2) {
                 screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
-                update();
-                return;
-            }
-            if (m_movingShape) {
-                QPointF delta = QPointF(event->pos()) - QPointF(m_lastMousePos);
-                QPointF oldP1, oldP2;
-                dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
-                dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
-                QPointF newP1 = oldP1 + delta;
-                QPointF newP2 = oldP2 + delta;
-                screenToDataCoord(newP1, s.candleIdx1, s.price1);
-                screenToDataCoord(newP2, s.candleIdx2, s.price2);
-                m_lastMousePos = event->pos();
                 update();
                 return;
             }
