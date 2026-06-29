@@ -15,6 +15,10 @@
 #include <QThread>
 #include <QTextStream>
 
+// NetCore 飞书发送器
+#include <NetCore/FeishuSender.h>
+#include <NetCore/IoContextManager.h>
+
 // Lua 5.5 headers
 extern "C" {
 #include "lua.h"
@@ -440,6 +444,11 @@ LuaScriptEngine::LuaScriptEngine(QObject *parent)
 
 LuaScriptEngine::~LuaScriptEngine()
 {
+    // 停止 IoContextManager（先于 m_state 销毁，确保异步操作完成）
+    if (m_ioCtxMgr) {
+        m_ioCtxMgr->stop();
+        m_ioCtxMgr.reset();
+    }
     if (m_state) {
         lua_close((lua_State*)m_state);
         m_state = nullptr;
@@ -465,6 +474,9 @@ bool LuaScriptEngine::initialize()
 
     // 注册 core API
     registerCoreAPI();
+
+    // 初始化飞书发送器（异步，发送完不用管）
+    initFeishuSender();
 
     return true;
 }
@@ -819,6 +831,41 @@ QString LuaScriptEngine::getScriptDescription(const QString &scriptName) const
     }
     f.close();
     return descLines.join("\n");
+}
+
+void LuaScriptEngine::initFeishuSender()
+{
+    // 读取 webhook URL
+    QString configPath = AppPaths::resolveDataDir("config") + "/server.json";
+    QFile f(configPath);
+    QString webhookUrl;
+    if (f.open(QIODevice::ReadOnly)) {
+        QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+        webhookUrl = doc.object().value("feishu_webhook").toString();
+        f.close();
+    }
+    if (webhookUrl.isEmpty()) {
+        qDebug() << "[Feishu] No webhook URL configured, FeishuSender not initialized";
+        return;
+    }
+
+    // 启动 IoContextManager
+    m_ioCtxMgr = std::make_shared<NetCore::IoContextManager>();
+    if (!m_ioCtxMgr->start()) {
+        qWarning() << "[Feishu] Failed to start IoContextManager";
+        m_ioCtxMgr.reset();
+        return;
+    }
+
+    // 创建 FeishuSender 并初始化
+    m_feishuSender = std::make_shared<FeishuSender>(m_ioCtxMgr->get_io_context());
+    if (!m_feishuSender->Init(webhookUrl.toStdString())) {
+        qWarning() << "[Feishu] Failed to initialize FeishuSender";
+        m_feishuSender.reset();
+        return;
+    }
+
+    qDebug() << "[Feishu] FeishuSender initialized successfully";
 }
 
 QHash<QString, QString> LuaScriptEngine::getAllScriptDescriptions() const

@@ -671,43 +671,22 @@ int main(int argc, char *argv[])
         sim->show();
     });
 
-    // ----- 测试飞书（使用 QNetworkAccessManager 发送 HTTP POST）-----
+    // ----- 测试飞书（使用 LuaScriptEngine 内部的 FeishuSender 异步发送）-----
     toolbar->addSeparator();
     QAction *aFeishu = toolbar->addAction(QStringLiteral("测试飞书"));
-    QObject::connect(aFeishu, &QAction::triggered, [logText]() {
-        // 从 config/server.json 读取 webhook URL
-        QString configPath = AppPaths::resolveDataDir("config") + "/server.json";
-        QFile f(configPath);
-        QString webhookUrl;
-        if (f.open(QIODevice::ReadOnly)) {
-            QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-            webhookUrl = doc.object().value("feishu_webhook").toString();
-            f.close();
-        }
-        if (webhookUrl.isEmpty()) {
-            logText->append("[飞书] 未配置 Webhook URL，请在 设置→飞书 中配置");
+    QObject::connect(aFeishu, &QAction::triggered, [logText, luaEngine]() {
+        if (!luaEngine || !luaEngine->feishuSender()) {
+            logText->append("[飞书] FeishuSender 未初始化，请在 设置→飞书 中配置 Webhook URL");
             return;
         }
         QString msg = QStringLiteral("WinLine 测试消息 - %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
         logText->append(QStringLiteral("[飞书] 正在发送: %1").arg(msg));
-        // 使用 QNetworkAccessManager 发送异步 POST 请求
-        QNetworkAccessManager *mgr = new QNetworkAccessManager();
-        QJsonObject content;
-        content["text"] = msg;
-        QJsonObject body;
-        body["msg_type"] = "text";
-        body["content"] = content;
-        QNetworkRequest req(QUrl(webhookUrl));
-        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-        req.setTransferTimeout(5000);
-        QNetworkReply *reply = mgr->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
-        QObject::connect(reply, &QNetworkReply::finished, [reply, logText]() {
-            if (reply->error() == QNetworkReply::NoError)
-                logText->append("[飞书] 发送成功");
+        // 异步发送飞书消息，发送完通过回调记录结果（空回调 = 发送完不用管）
+        luaEngine->feishuSender()->SendMarkdown(msg.toStdString(), [logText](const NetCore::HttpResponse &resp) {
+            if (resp.status_code >= 200 && resp.status_code < 300)
+                logText->append(QStringLiteral("[飞书] 发送成功（HTTP %1）").arg(resp.status_code));
             else
-                logText->append("[飞书] 发送失败: " + reply->errorString());
-            reply->deleteLater();
-            reply->manager()->deleteLater();
+                logText->append(QStringLiteral("[飞书] 发送失败: HTTP %1 %2").arg(resp.status_code).arg(QString::fromStdString(resp.status_text)));
         });
     });
 
