@@ -10,8 +10,10 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QDebug>
+#include <QJsonArray>
 #include <QMutexLocker>
 #include <QThread>
+#include <QTextStream>
 
 // Lua 5.5 headers
 extern "C" {
@@ -249,15 +251,9 @@ static int lua_core_shape_add(lua_State *L)
     ShapeType st = ShapeType::Shape_Line; // default
     if (strcmp(typeStr, "Line") == 0 || strcmp(typeStr, "line") == 0) st = ShapeType::Shape_Line;
     else if (strcmp(typeStr, "Trend") == 0 || strcmp(typeStr, "trend") == 0) st = ShapeType::Shape_Trend;
-    else if (strcmp(typeStr, "GestureUp") == 0) st = ShapeType::Shape_GestureUp;
-    else if (strcmp(typeStr, "GestureDown") == 0) st = ShapeType::Shape_GestureDown;
-    else if (strcmp(typeStr, "Text") == 0) st = ShapeType::Shape_Text;
-    else if (strcmp(typeStr, "HLine") == 0) st = ShapeType::Shape_HLine;
-    else if (strcmp(typeStr, "VLine") == 0) st = ShapeType::Shape_VLine;
-    else if (strcmp(typeStr, "TradeBuy") == 0) st = ShapeType::Shape_TradeBuy;
-    else if (strcmp(typeStr, "TradeSell") == 0) st = ShapeType::Shape_TradeSell;
-    else if (strcmp(typeStr, "TradeShort") == 0) st = ShapeType::Shape_TradeShort;
-    else if (strcmp(typeStr, "TradeCover") == 0) st = ShapeType::Shape_TradeCover;
+    else if (strcmp(typeStr, "UpTriangle") == 0) st = ShapeType::Shape_UpTriangle;
+    else if (strcmp(typeStr, "DownTriangle") == 0) st = ShapeType::Shape_DownTriangle;
+    else if (strcmp(typeStr, "Note") == 0) st = ShapeType::Shape_UpTriangle;
 
     KLineWidget::Shape s;
     s.type = st;
@@ -267,6 +263,11 @@ static int lua_core_shape_add(lua_State *L)
     s.price2 = price2;
     s.name = QString::fromUtf8(name);
     s.color = QColor(Qt::white);
+    // Set scriptName from current script context
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    if (engine) {
+        s.scriptName = engine->currentScriptName();
+    }
     int newId = kw->addShape(s);
 
     lua_pushinteger(L, newId);
@@ -314,6 +315,103 @@ static int lua_core_shape_remove(lua_State *L)
     shapes.erase(std::remove_if(shapes.begin(), shapes.end(),
                                 [id](const KLineWidget::Shape &s) { return s.id == id; }),
                  shapes.end());
+    kw->setShapes(shapes);
+    kw->saveShapes();
+    return 0;
+}
+
+// core.shape_add_fixed(type, normX, normY, text, name) -> int (shape id)
+static int lua_core_shape_add_fixed(lua_State *L)
+{
+    KLineWidget *kw = getKLineWidget(L);
+    if (!kw) { lua_pushinteger(L, -1); return 1; }
+
+    const char *typeStr = luaL_checkstring(L, 1);
+    double normX = luaL_checknumber(L, 2);
+    double normY = luaL_checknumber(L, 3);
+    const char *text = luaL_optstring(L, 4, "");
+    const char *name = luaL_optstring(L, 5, "");
+
+    using ShapeType = KLineWidget::ShapeType;
+    ShapeType st = ShapeType::Shape_FixedDot;
+    if (strcmp(typeStr, "Circle") == 0 || strcmp(typeStr, "circle") == 0) st = ShapeType::Shape_FixedDot;
+    else if (strcmp(typeStr, "Triangle") == 0 || strcmp(typeStr, "triangle") == 0) st = ShapeType::Shape_FixedTriangle;
+    else if (strcmp(typeStr, "Dot") == 0 || strcmp(typeStr, "dot") == 0) st = ShapeType::Shape_FixedDot;
+    else if (strcmp(typeStr, "Note") == 0 || strcmp(typeStr, "note") == 0) st = ShapeType::Shape_FixedDot;
+    else if (strcmp(typeStr, "Label") == 0 || strcmp(typeStr, "label") == 0) st = ShapeType::Shape_FixedDot;
+
+    KLineWidget::Shape s;
+    s.type = st;
+    s.attachment = KLineWidget::Attach_Fixed;
+    s.normX = qBound(0.0, normX, 1.0);
+    s.normY = qBound(0.0, normY, 1.0);
+    s.text = QString::fromUtf8(text);
+    s.name = QString::fromUtf8(name);
+    s.color = QColor(255, 200, 100);
+    // Set scriptName from current script context
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    if (engine) {
+        s.scriptName = engine->currentScriptName();
+    }
+    int newId = kw->addShape(s);
+    lua_pushinteger(L, newId);
+    return 1;
+}
+
+// core.child_add(type, normX, normY, text) -> int (child shape id)
+// Creates a child Fixed shape owned by the currently executing script/bar event
+static int lua_core_child_add(lua_State *L)
+{
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    KLineWidget *kw = engine ? engine->klineWidget() : nullptr;
+    if (!kw) { lua_pushinteger(L, -1); return 1; }
+
+    const char *typeStr = luaL_checkstring(L, 1);
+    double normX = luaL_checknumber(L, 2);
+    double normY = luaL_checknumber(L, 3);
+    const char *text = luaL_optstring(L, 4, "");
+
+    int parentId = engine->currentScriptParentShapeId();
+    if (parentId <= 0) { lua_pushinteger(L, -1); return 1; }
+
+    int childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr), normX, normY, QString::fromUtf8(text));
+    lua_pushinteger(L, childId);
+    if (kw) kw->saveShapes();
+    return 1;
+}
+
+// core.child_remove(id)
+static int lua_core_child_remove(lua_State *L)
+{
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    KLineWidget *kw = engine ? engine->klineWidget() : nullptr;
+    if (!kw) return 0;
+
+    int childId = (int)luaL_checkinteger(L, 1);
+    engine->removeChildShape(childId);
+    if (kw) kw->saveShapes();
+    return 0;
+}
+
+// core.child_select(id)
+// core.child_clear()
+static int lua_core_child_select(lua_State *L)
+{
+    KLineWidget *kw = getKLineWidget(L);
+    if (!kw) return 0;
+
+    QVector<KLineWidget::Shape> shapes = kw->shapes();
+
+    if (lua_gettop(L) == 0) {
+        // child_clear: deselect all
+        for (auto &s : shapes) s.selected = false;
+        kw->setShapes(shapes);
+        return 0;
+    }
+    int id = (int)luaL_checkinteger(L, 1);
+    for (int i = 0; i < shapes.size(); ++i) {
+        shapes[i].selected = (shapes[i].id == id);
+    }
     kw->setShapes(shapes);
     return 0;
 }
@@ -390,6 +488,10 @@ void LuaScriptEngine::registerCoreAPI()
         {"shape_add",   lua_core_shape_add},
         {"shape_remove", lua_core_shape_remove},
         {"get_shape_price", lua_core_get_shape_price},
+        {"shape_add_fixed", lua_core_shape_add_fixed},
+        {"child_add", lua_core_child_add},
+        {"child_remove", lua_core_child_remove},
+        {"child_select", lua_core_child_select},
         {nullptr, nullptr}
     };
 
@@ -573,4 +675,233 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
             emit scriptError(scriptName, err);
         }
     }
+}
+
+KLineWidget *LuaScriptEngine::klineWidget() const
+{
+    return m_klineWidget;
+}
+
+void LuaScriptEngine::reloadShapesForSymbol(const QString &symbol, int timeframe)
+{
+    QMutexLocker lock(&m_mutex);
+    QString key = symbol + "|" + QString::number(timeframe);
+    m_shapesDiskCache.remove(key);
+    // Clear script index and rebuild below
+    m_scriptShapesIndex.clear();
+    QString shapesDir = AppPaths::resolveDataDir("data/shapes");
+    QString fname = symbol + "_" + QString::number(timeframe) + ".json";
+    QFile f(QDir(shapesDir).filePath(fname));
+    if (!f.open(QIODevice::ReadOnly)) return;
+    QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+    f.close();
+    if (!doc.isObject()) return;
+    QJsonArray arr = doc.object()["shapes"].toArray();
+    QVector<QSharedPointer<KLineWidget::Shape>> shapes;
+    for (const auto &val : arr) {
+        QJsonObject obj = val.toObject();
+        auto sp = QSharedPointer<KLineWidget::Shape>::create();
+        sp->id = obj["id"].toInt();
+        sp->type = static_cast<KLineWidget::ShapeType>(obj["type"].toInt());
+        sp->attachment = static_cast<KLineWidget::ShapeAttachment>(obj["attachment"].toInt(0));
+        sp->name = obj["name"].toString();
+        sp->text = obj["text"].toString();
+        sp->color = QColor(obj["color"].toString("#FFFFFF"));
+        sp->candleIdx1 = obj["candleIdx1"].toInt();
+        sp->price1 = obj["price1"].toDouble();
+        sp->candleIdx2 = obj["candleIdx2"].toInt();
+        sp->price2 = obj["price2"].toDouble();
+        sp->normX = obj["normX"].toDouble(0.5);
+        sp->normY = obj["normY"].toDouble(0.5);
+        sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
+        sp->scriptName = obj["scriptName"].toString();
+        sp->scriptParams = obj["scriptParams"].toString();
+        shapes.append(sp);
+        QString sn = sp->scriptName;
+        if (sn.endsWith(".lua", Qt::CaseInsensitive)) sn = sn.left(sn.length() - 4);
+        if (!sn.isEmpty()) m_scriptShapesIndex[sn].append(sp);
+    }
+    m_shapesDiskCache[key] = shapes;
+}
+
+QList<QPair<QString,int>> LuaScriptEngine::allLoadedShapeSymbols() const
+{
+    QMutexLocker lock(&m_mutex);
+    QList<QPair<QString,int>> result;
+    for (auto it = m_shapesDiskCache.begin(); it != m_shapesDiskCache.end(); ++it) {
+        QStringList parts = it.key().split('|');
+        if (parts.size() == 2) {
+            bool ok = false;
+            int tf = parts[1].toInt(&ok);
+            if (ok) result.append(qMakePair(parts[0], tf));
+        }
+    }
+    return result;
+}
+
+int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
+                                     double normX, double normY, const QString &text)
+{
+    KLineWidget *kw = klineWidget();
+    if (!kw) return -1;
+    KLineWidget::Shape s;
+    s.attachment = KLineWidget::Attach_Fixed;
+    s.ownerShapeId = parentShapeId;
+    s.normX = normX;
+    s.normY = normY;
+    s.text = text;
+    s.color = QColor(255, 200, 100);
+    if (type.compare("Circle", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
+    else if (type.compare("Triangle", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedTriangle;
+    else if (type.compare("Dot", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
+    else if (type.compare("Note", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
+    else if (type.compare("Label", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
+    else s.type = KLineWidget::Shape_FixedDot;
+    return kw->addShape(s);
+}
+
+bool LuaScriptEngine::removeChildShape(int childShapeId)
+{
+    KLineWidget *kw = klineWidget();
+    if (!kw) return false;
+    QVector<KLineWidget::Shape> shapes = kw->shapes();
+    int before = shapes.size();
+    shapes.erase(std::remove_if(shapes.begin(), shapes.end(),
+        [childShapeId](const KLineWidget::Shape &s) { return s.id == childShapeId; }),
+        shapes.end());
+    if (shapes.size() == before) return false;
+    kw->setShapes(shapes);
+    return true;
+}
+
+QVector<int> LuaScriptEngine::childShapeIds(int parentShapeId) const
+{
+    KLineWidget *kw = klineWidget();
+    if (!kw) return {};
+    QVector<int> ids;
+    for (const auto &s : kw->shapes()) {
+        if (s.ownerShapeId == parentShapeId)
+            ids.append(s.id);
+    }
+    return ids;
+}
+
+// ── 脚本说明（从文件头部 -- 注释解析） ──
+QString LuaScriptEngine::getScriptDescription(const QString &scriptName) const
+{
+    // 脚本路径: data/scripts/{scriptName}.lua
+    QString scriptDir = AppPaths::resolveDataDir("data/scripts");
+    QString path = scriptDir + "/" + scriptName + ".lua";
+    if (!scriptName.endsWith(".lua", Qt::CaseInsensitive))
+        path = scriptDir + "/" + scriptName + ".lua";
+
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+        return {};
+
+    QStringList descLines;
+    QTextStream in(&f);
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        // 只解析开头的 -- 注释（前面的行）
+        if (line.trimmed().startsWith("--")) {
+            // 去掉 "-- " 或 "--" 前缀
+            QString text = line.trimmed();
+            if (text.startsWith("-- "))
+                text = text.mid(3);
+            else if (text.startsWith("--"))
+                text = text.mid(2);
+            descLines.append(text);
+        } else if (!line.trimmed().isEmpty()) {
+            // 遇到非空非注释行就停止（函数定义等）
+            break;
+        }
+    }
+    f.close();
+    return descLines.join("\n");
+}
+
+QHash<QString, QString> LuaScriptEngine::getAllScriptDescriptions() const
+{
+    QHash<QString, QString> result;
+    QString scriptDir = AppPaths::resolveDataDir("data/scripts");
+    QDir dir(scriptDir);
+    auto files = dir.entryList({"*.lua"}, QDir::Files);
+    for (const auto &f : files) {
+        QString name = f;
+        if (name.endsWith(".lua", Qt::CaseInsensitive))
+            name = name.left(name.length() - 4);
+        result[name] = getScriptDescription(name);
+    }
+    return result;
+}
+
+
+void LuaScriptEngine::loadShapesFromDisk()
+{
+    QMutexLocker lock(&m_mutex);
+    m_shapesDiskCache.clear();
+    m_scriptShapesIndex.clear();
+
+    QString shapesDir = AppPaths::resolveDataDir("data/shapes");
+    QDir dir(shapesDir);
+    if (!dir.exists()) return;
+
+    QStringList jsonFiles = dir.entryList(QStringList() << "*.json", QDir::Files);
+    QList<QPair<QString,int>> loadedSymbols;
+
+    for (const QString &fname : jsonFiles) {
+        QString base = fname;
+        base.chop(5);
+        int underscore = base.lastIndexOf('_');
+        if (underscore < 0) continue;
+        QString symbol = base.left(underscore);
+        bool ok = false;
+        int tf = base.mid(underscore + 1).toInt(&ok);
+        if (!ok) continue;
+
+        QFile f(dir.filePath(fname));
+        if (!f.open(QIODevice::ReadOnly)) continue;
+        QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+        f.close();
+        if (!doc.isObject()) continue;
+
+        QJsonObject root = doc.object();
+        QJsonArray arr = root["shapes"].toArray();
+        QString key = symbol + "|" + QString::number(tf);
+        QVector<QSharedPointer<KLineWidget::Shape>> shapes;
+
+        for (const auto &val : arr) {
+            QJsonObject obj = val.toObject();
+            auto sp = QSharedPointer<KLineWidget::Shape>::create();
+            sp->id = obj["id"].toInt();
+            sp->type = static_cast<KLineWidget::ShapeType>(obj["type"].toInt());
+            sp->attachment = static_cast<KLineWidget::ShapeAttachment>(obj["attachment"].toInt(0));
+            sp->name = obj["name"].toString();
+            sp->text = obj["text"].toString();
+            sp->color = QColor(obj["color"].toString("#FFFFFF"));
+            sp->candleIdx1 = obj["candleIdx1"].toInt();
+            sp->price1 = obj["price1"].toDouble();
+            sp->candleIdx2 = obj["candleIdx2"].toInt();
+            sp->price2 = obj["price2"].toDouble();
+            sp->normX = obj["normX"].toDouble(0.5);
+            sp->normY = obj["normY"].toDouble(0.5);
+            sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
+            sp->scriptName = obj["scriptName"].toString();
+            sp->scriptParams = obj["scriptParams"].toString();
+            shapes.append(sp);
+
+            QString sn = sp->scriptName;
+            if (sn.endsWith(".lua", Qt::CaseInsensitive))
+                sn = sn.left(sn.length() - 4);
+            if (!sn.isEmpty())
+                m_scriptShapesIndex[sn].append(sp);
+        }
+
+        m_shapesDiskCache[key] = shapes;
+        loadedSymbols.append(qMakePair(symbol, tf));
+    }
+
+    if (!loadedSymbols.isEmpty())
+        emit scriptsInitialized(loadedSymbols);
 }

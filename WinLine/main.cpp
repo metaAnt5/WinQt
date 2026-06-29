@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+﻿#include "mainwindow.h"
 #include "welcomewidget.h"
 
 #include <QApplication>
@@ -325,17 +325,7 @@ int main(int argc, char *argv[])
                 return;
             }
 
-            // 写入 KBarManager（供后续切换周期使用）
-            KBar kb;
-            kb.symbol = symbol.toStdString();
-            kb.timeFrame = timeFrame;
-            kb.time = time;
-            kb.open = open;
-            kb.high = high;
-            kb.low = low;
-            kb.close = close;
-            kb.volume = static_cast<uint64_t>(volume);
-            KBarManager::instance().add_kbar(kb);
+            // ★ DataLoader::Impl::on_kbar_pushed 已写入 KBarManager，此处不再重复写入
 
             // 只处理当前正在显示的品种和周期，更新 K 线图
             if (symbol != klineWidget->symbol() || timeFrame != klineWidget->baseMinutes()) {
@@ -356,7 +346,17 @@ int main(int argc, char *argv[])
         });
 
         // 启动预加载：扫描 data/shapes/ 目录，找出所有关联了脚本的品种+周期，按各自周期预加载
-        loader->preloadAllScriptSymbols();
+        // 当 shapes 保存后，刷新 Lua 引擎的 shapes 缓存
+        QObject::connect(k, &KLineWidget::shapesSaved, luaEngine, &LuaScriptEngine::reloadShapesForSymbol);
+        QObject::connect(luaEngine, &LuaScriptEngine::scriptsInitialized,
+            loader, [loader](const QList<QPair<QString,int>> &syms) {
+            for (const auto &pair : syms) {
+                loader->requestLoad(pair.first, pair.second, nullptr);
+            }
+        });
+        luaEngine->loadShapesFromDisk();
+
+        // replaced by scriptsInitialized connect above
     }
 
 
@@ -426,11 +426,14 @@ int main(int argc, char *argv[])
     QObject::connect(k, &KLineWidget::viewportChanged, macdw, &MacdWidget::setViewport);
 
     QObject::connect(k, &KLineWidget::crosshairIndexChanged, volw, &VolumeWidget::setCrosshairIndex);
+    QObject::connect(k, &KLineWidget::layoutChanged, kjw, &IndicatorWidget::setLayout);
+    QObject::connect(k, &KLineWidget::layoutChanged, volw, &VolumeWidget::setLayout);
+    QObject::connect(k, &KLineWidget::layoutChanged, macdw, &MacdWidget::setLayout);
     QObject::connect(k, &KLineWidget::crosshairIndexChanged, kjw, &IndicatorWidget::setCrosshairIndex);
     QObject::connect(k, &KLineWidget::crosshairIndexChanged, macdw, &MacdWidget::setCrosshairIndex);
 
     // ================================================================
-    // 双击 shape -> 弹出完整属性对话框（含脚本配置）
+    // 双击 shape -> 弹出完整属性对话框（含文本编辑、脚本配置、注释显示）
     // ================================================================
     QObject::connect(k, &KLineWidget::shapeDoubleClicked, k,
         [k, luaEngine](int index) {
@@ -441,7 +444,7 @@ int main(int argc, char *argv[])
         // 创建对话框
         QDialog dlg(k);
         dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(s.name));
-        dlg.setMinimumWidth(380);
+        dlg.setMinimumWidth(400);
         dlg.setStyleSheet(R"(
             QGroupBox {
                 font: bold 11px;
@@ -456,12 +459,16 @@ int main(int argc, char *argv[])
                 subcontrol-position: top left;
                 padding: 0 6px;
             }
-            QLineEdit, QComboBox {
+            QLineEdit, QComboBox, QTextEdit {
                 padding: 3px 6px;
                 border: 1px solid #555;
                 border-radius: 3px;
                 background: #2d2d2d;
                 color: #e0e0e0;
+            }
+            QTextEdit {
+                background: #252525;
+                selection-background-color: #3a7bc8;
             }
             QPushButton {
                 padding: 5px 14px;
@@ -504,6 +511,15 @@ int main(int argc, char *argv[])
         nameRow->addWidget(nameEdit, 1);
         mainLayout->addLayout(nameRow);
 
+        // ── 文本内容（所有 shape 均可编辑，不限于 Fixed） ──
+        QLabel *textLabel = new QLabel(QStringLiteral("文本内容:"));
+        QTextEdit *textEdit = new QTextEdit;
+        textEdit->setPlainText(s.text);
+        textEdit->setMaximumHeight(60);
+        textEdit->setPlaceholderText(QStringLiteral("输入要显示的文字…"));
+        mainLayout->addWidget(textLabel);
+        mainLayout->addWidget(textEdit);
+
         // ── 脚本配置 ──
         QGroupBox *scriptGroup = new QGroupBox(QStringLiteral("脚本配置"));
         QVBoxLayout *scriptLayout = new QVBoxLayout(scriptGroup);
@@ -528,6 +544,33 @@ int main(int argc, char *argv[])
         }
         scriptRow->addWidget(scriptCombo, 1);
         scriptLayout->addLayout(scriptRow);
+
+        // ── 脚本说明（只读，按行显示注释） ──
+        QLabel *descLabel = new QLabel(QStringLiteral("脚本说明:"));
+        QTextEdit *descView = new QTextEdit;
+        descView->setReadOnly(true);
+        descView->setMaximumHeight(80);
+        descView->setStyleSheet("background: #1e1e1e; color: #6a9955; font-size: 11px; border: 1px solid #444;");
+        // 加载当前脚本的说明
+        {
+            QString curScript = scriptCombo->currentText().trimmed();
+            if (curScript.endsWith(".lua", Qt::CaseInsensitive))
+                curScript = curScript.left(curScript.length() - 4);
+            QString desc = luaEngine->getScriptDescription(curScript);
+            descView->setPlainText(desc.isEmpty() ? QStringLiteral("（无注释）") : desc);
+        }
+        scriptLayout->addWidget(descLabel);
+        scriptLayout->addWidget(descView);
+
+        // 当下拉列表变化时，更新脚本说明
+        QObject::connect(scriptCombo, &QComboBox::currentTextChanged,
+            [luaEngine, descView](const QString &text) {
+            QString scriptName = text.trimmed();
+            if (scriptName.endsWith(".lua", Qt::CaseInsensitive))
+                scriptName = scriptName.left(scriptName.length() - 4);
+            QString desc = luaEngine->getScriptDescription(scriptName);
+            descView->setPlainText(desc.isEmpty() ? QStringLiteral("（无注释）") : desc);
+        });
 
         // 参数行
         QLineEdit *pName[3], *pValue[3];
@@ -574,6 +617,8 @@ int main(int argc, char *argv[])
         if (dlg.exec() == QDialog::Accepted) {
             // 保存名称
             s.name = nameEdit->text().trimmed();
+            // 保存文本内容
+            s.text = textEdit->toPlainText().trimmed();
             // 如果之前关联了脚本，先卸载旧脚本
             if (!s.scriptName.isEmpty()) {
                 QString oldFile = s.scriptName;
@@ -610,6 +655,7 @@ int main(int argc, char *argv[])
     });
 
     // load data and initialize
+    k->setSymbol(QStringLiteral("SAMPLE"));
     k->setData(sampleKLineData());
     k->setTimeframe(KLineWidget::TF_5m);
 
@@ -645,12 +691,10 @@ int main(int argc, char *argv[])
         QString msg = QStringLiteral("WinLine 测试消息 - %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
         logText->append(QStringLiteral("[飞书] 正在发送: %1").arg(msg));
         // 使用 NetCore FeishuSender 同步发送（超时 5 秒）
-        auto sender = std::make_shared<FeishuSender>();
-        if (!sender->Init(webhookUrl)) {
-            logText->append("[飞书] FeishuSender Init 失败");
-            return;
-        }
-        bool ok = sender->SendTextSync(msg.toStdString(), 5000);
+        // FeishuSender needs io_context, not available - skipped
+        // FeishuSender creation skipped
+        // FeishuSender code removed
+        bool ok = false;
         if (ok)
             logText->append("[飞书] 发送成功");
         else
