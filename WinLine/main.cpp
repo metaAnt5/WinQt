@@ -671,34 +671,44 @@ int main(int argc, char *argv[])
         sim->show();
     });
 
-    // ----- 测试飞书（使用 NetCore 的 FeishuSender）-----
+    // ----- 测试飞书（使用 QNetworkAccessManager 发送 HTTP POST）-----
     toolbar->addSeparator();
     QAction *aFeishu = toolbar->addAction(QStringLiteral("测试飞书"));
     QObject::connect(aFeishu, &QAction::triggered, [logText]() {
         // 从 config/server.json 读取 webhook URL
         QString configPath = AppPaths::resolveDataDir("config") + "/server.json";
         QFile f(configPath);
-        std::string webhookUrl;
+        QString webhookUrl;
         if (f.open(QIODevice::ReadOnly)) {
             QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
-            webhookUrl = doc.object().value("feishu_webhook").toString().toStdString();
+            webhookUrl = doc.object().value("feishu_webhook").toString();
             f.close();
         }
-        if (webhookUrl.empty()) {
+        if (webhookUrl.isEmpty()) {
             logText->append("[飞书] 未配置 Webhook URL，请在 设置→飞书 中配置");
             return;
         }
         QString msg = QStringLiteral("WinLine 测试消息 - %1").arg(QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss"));
         logText->append(QStringLiteral("[飞书] 正在发送: %1").arg(msg));
-        // 使用 NetCore FeishuSender 同步发送（超时 5 秒）
-        // FeishuSender needs io_context, not available - skipped
-        // FeishuSender creation skipped
-        // FeishuSender code removed
-        bool ok = false;
-        if (ok)
-            logText->append("[飞书] 发送成功");
-        else
-            logText->append("[飞书] 发送失败");
+        // 使用 QNetworkAccessManager 发送异步 POST 请求
+        QNetworkAccessManager *mgr = new QNetworkAccessManager();
+        QJsonObject content;
+        content["text"] = msg;
+        QJsonObject body;
+        body["msg_type"] = "text";
+        body["content"] = content;
+        QNetworkRequest req(QUrl(webhookUrl));
+        req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+        req.setTransferTimeout(5000);
+        QNetworkReply *reply = mgr->post(req, QJsonDocument(body).toJson(QJsonDocument::Compact));
+        QObject::connect(reply, &QNetworkReply::finished, [reply, logText]() {
+            if (reply->error() == QNetworkReply::NoError)
+                logText->append("[飞书] 发送成功");
+            else
+                logText->append("[飞书] 发送失败: " + reply->errorString());
+            reply->deleteLater();
+            reply->manager()->deleteLater();
+        });
     });
 
     mainWindow.resize(1000, 700);
