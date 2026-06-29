@@ -1,6 +1,7 @@
 #include "macdwidget.h"
 #include "chartconfig.h"
 #include <QPainter>
+#include <QRect>
 #include <QPainterPath>
 
 MacdWidget::MacdWidget(QWidget *parent) : QWidget(parent) {
@@ -15,6 +16,12 @@ void MacdWidget::setViewport(int startIndex, int count) {
     m_viewStart = qBound(0, startIndex, qMax(0, m_data.size()-1));
     m_viewCount = qBound(0, count, qMax(0, m_data.size()-m_viewStart));
     update();
+}
+
+void MacdWidget::setLayout(int startIndex, int /*visibleCount*/, double totalPer, double /*candleBodyWidth*/, QRect mainChartRect) {
+    m_layoutStart = startIndex;
+    m_totalPer = totalPer > 0 ? totalPer : 1.0;
+    m_mainLeft = mainChartRect.left();
 }
 
 void MacdWidget::setCrosshairIndex(int index) { m_crossIdx = index; update(); }
@@ -53,13 +60,12 @@ void MacdWidget::paintEvent(QPaintEvent *event) {
     if (count<=0) return;
     QRect r = rect().adjusted(40,4,-10,-4);
     double maxV = 0; for (int i=start;i<start+count;++i) maxV = qMax(maxV, qAbs(m_hist[i]));
-
-    // 使用主图的 totalPer 和 mainRect.left() 确保 K 棒中心对齐
-    double totalPer = ChartConfig::totalPer();
-    int mainLeft = ChartConfig::mainRect().left();
-    int mainStart = ChartConfig::startIndex();
-    double barW = (totalPer > 0) ? totalPer : qMax(2.0, (r.width() / (double)qMax(1, count)));
-    double drawLeft = (totalPer > 0) ? static_cast<double>(mainLeft) : static_cast<double>(r.left());
+    // 使用主图的 layout 参数确保 K 棒中心对齐
+    double totalPer = m_totalPer > 0 ? m_totalPer : qMax(2.0, (r.width() / (double)qMax(1, count)));
+    int mainLeft = m_mainLeft > 0 ? m_mainLeft : r.left();
+    int mainStart = m_layoutStart;
+    double barW = totalPer;
+    double drawLeft = static_cast<double>(mainLeft);
 
     for (int i=0;i<count;++i) {
         int idx = start+i;
@@ -87,7 +93,7 @@ void MacdWidget::paintEvent(QPaintEvent *event) {
 
     // crosshair — 使用主图的 candleCenterX 确保与主图精确对齐
     if (m_crossIdx>=start && m_crossIdx < start+count) {
-        double x = static_cast<double>(ChartConfig::candleCenterX(m_crossIdx));
+        double x = mainLeft + (m_crossIdx - mainStart) * totalPer + totalPer / 2.0;
         p.setPen(QPen(Qt::magenta, 1.5, Qt::DashLine));
         p.drawLine(int(x), r.top(), int(x), r.bottom());
     }

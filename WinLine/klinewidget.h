@@ -6,6 +6,8 @@
 #include <QDateTime>
 #include <QString>
 #include <QColor>
+#include <QPointF>
+#include <QPolygonF>
 #include <QMap>
 
 
@@ -33,10 +35,14 @@ public:
     void setTimeframe(Timeframe tf);
 
     // Drawing tools
-    enum ToolMode { Tool_None = 0, Tool_Line, Tool_Trend, Tool_GestureUp, Tool_GestureDown, Tool_Text, Tool_HLine, Tool_VLine,
-                    Tool_TradeBuy, Tool_TradeSell, Tool_TradeShort, Tool_TradeCover };
-    enum ShapeType { Shape_Line = 0, Shape_Trend, Shape_GestureUp, Shape_GestureDown, Shape_Text, Shape_HLine, Shape_VLine,
-                     Shape_TradeBuy, Shape_TradeSell, Shape_TradeShort, Shape_TradeCover };
+    // Drawing tools (simplified)
+    enum ToolMode { Tool_None = 0, Tool_Line, Tool_Trend, Tool_UpTriangle, Tool_DownTriangle,
+                    Tool_FixedDot, Tool_FixedTriangle };
+    enum ShapeType { Shape_Line = 0, Shape_Trend, Shape_UpTriangle, Shape_DownTriangle,
+                     Shape_FixedDot = 100, Shape_FixedTriangle };
+    // Shape attachment category
+    enum ShapeAttachment { Attach_KLineBound = 0,  // K-line bound, moves with zoom/pan
+                           Attach_Fixed };          // Fixed position, does not move
     struct Shape {
         ShapeType type;
         QString text;
@@ -44,11 +50,18 @@ public:
         QString name;   // user-assigned name
         QColor color;   // user-selected color
         int id;         // unique identifier
-        // data coordinates: stick to K-line when zooming/panning
+        // attachment category
+        ShapeAttachment attachment = Attach_KLineBound;
+        // data coordinates: stick to K-line when zooming/panning (for KLineBound)
         int candleIdx1; // candle index for p1
         double price1;  // price for p1
         int candleIdx2; // candle index for p2
         double price2;  // price for p2
+        // normalized coordinates 0..1 relative to chart area (for Fixed)
+        double normX = 0.5;
+        double normY = 0.5;
+        // script ownership: 0 = user-created, >0 = child of shape with this id
+        int ownerShapeId = 0;
         // trade-specific fields
         double tradePrice = 0.0;   // 成交价
         QDateTime tradeTime;       // 成交时间
@@ -84,6 +97,11 @@ public:
     int indexForScreenX(int screenX) const;
     double candleBodyWidth() const;
 
+    // Fixed shape helpers
+    QPointF screenToNorm(const QPoint &screenPt) const;
+    QPoint normToScreen(double normX, double normY) const;
+    void drawFixedShapes(QPainter &p);
+
     // Save/Load shapes
     QString shapesFilePath() const;
     void saveShapes();
@@ -95,12 +113,12 @@ public:
     void setConnectionStatus(bool connected);
 
     // Accessors for LuaEngine
-    const QVector<Candle>& allData() const { return m_allData; }
+    const QVector<Candle>& allData() const { return m_data; }
     const QString& symbol() const { return m_symbol; }
     int baseMinutes() const { return m_baseMinutes; }
     Timeframe timeframe() const { return m_timeframe; }
 
-    // Helper: find candle index by time (binary search on m_allData)
+    // Helper: find candle index by time (binary search on m_data)
     int findCandleIndexByTime(const QDateTime &time) const;
 
 Q_SIGNALS:
@@ -118,6 +136,9 @@ Q_SIGNALS:
 
     // Emit when shapes are loaded from file (for Lua script engine to load associated scripts)
     void shapesLoaded();
+
+    // Emit when shapes are saved to file (for Lua script engine cache refresh)
+    void shapesSaved(const QString &symbol, int timeframe);
 
     // Emit when a realtime candle update arrives (for Lua script engine)
     void candleUpdated(const Candle &candle, bool isNewBar);
@@ -137,8 +158,7 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
-    QVector<Candle> m_allData; // original data for current timeframe
-    QVector<Candle> m_data;    // displayed data
+    QVector<Candle> m_data;    // displayed data (single source of truth)
     double m_minPrice;
     double m_maxPrice;
     void updateRange();
@@ -183,7 +203,7 @@ private:
     void calculateMovingAverages();
     void drawMovingAverages(QPainter &p); // extra right blank space so K lines don't touch edge
     Timeframe m_timeframe;
-    int m_baseMinutes; // base timeframe of m_allData in minutes
+    int m_baseMinutes; // base timeframe of m_data in minutes
     int m_nextShapeId; // incremental id for shapes
 
     void emitCrosshairSignals();
@@ -197,12 +217,19 @@ private:
     void showNoData();
     void hideNoData();
 
-    // Realtime price label
+    // Realtime price label & data
     QLabel *m_realtimeLabel = nullptr;
     double m_lastPrice = 0;
     double m_lastOpen = 0;
+    double m_lastHigh = 0;
+    double m_lastLow = 0;
+    double m_lastVolume = 0;
+    double m_prevClose = 0;   // 上一根K线的收盘价（用于计算涨跌）
     bool m_connected = false;
     QString m_symbol;
 
     void updateRealtimeLabel();
+
+    // 绘制十字光标悬浮信息框（鼠标位置）
+    void drawCrosshairInfoBox(QPainter &p, int candleIdx, double price);
 };

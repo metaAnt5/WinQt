@@ -3,6 +3,7 @@
     <Market name="福汇" dataDir="data/fh" apiType="file" filenamePattern="%{symbol}%{tf}.csv" readerType="fh">
         <Symbol csvPath="XAUUSD.csv">XAUUSD</Symbol>
         <Symbol csvPath="NAS100.csv">NAS100</Symbol>
-        <Symbol csvPath="USOIL.csv">USOil</Symbol>
+        <Symbol csvPath="HKG33.csv">HKG33</Symbol>
+        <Symbol csvPath="JPN225.csv">JPN225</Symbol>
     </Market>
 </Markets>

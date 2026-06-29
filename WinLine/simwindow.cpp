@@ -7,6 +7,7 @@
 #include "macdwidget.h"
 #include "clickfilter.h"
 #include "drawtoolbar.h"
+#include "indicatorcalc.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -205,6 +206,26 @@ void SimWindow::connectSignals()
 // 槽函数
 // ============================================================
 
+// 帮助函数：从数据中检测K线周期（分钟）
+static int detectBaseMinutes(const QVector<Candle> &data)
+{
+    if (data.size() < 2) return 1;
+    qint64 secDiff = qAbs(data[0].date.secsTo(data[1].date));
+    if (secDiff <= 0) return 1;
+    int minutes = static_cast<int>(secDiff / 60);
+    // 四舍五入到常见周期
+    if (minutes <= 1) return 1;      // 1m
+    if (minutes <= 3) return 1;      // 实际1m但差值略大
+    if (minutes <= 7) return 5;      // 5m
+    if (minutes <= 10) return 5;     // 略超
+    if (minutes <= 20) return 15;    // 15m
+    if (minutes <= 40) return 30;    // 30m
+    if (minutes <= 90) return 60;    // 60m
+    if (minutes <= 300) return 240;  // 4h
+    if (minutes <= 1000) return 1440;// 日线
+    return minutes;                  // 其他
+}
+
 void SimWindow::onOpenFile()
 {
     QString file = QFileDialog::getOpenFileName(
@@ -245,10 +266,19 @@ void SimWindow::onOpenFile()
     QFileInfo fi(file);
     m_symbol = fi.completeBaseName();
 
-    // 更新窗口标题
-    setWindowTitle(QStringLiteral("模拟回放 - %1 (%2 根K线)").arg(m_symbol).arg(data.size()));
+    // **** 自动检测K线周期 ****
+    m_baseMinutes = detectBaseMinutes(data);
 
-    m_logText->append(QStringLiteral("已加载: %1  共 %2 根 K 线").arg(file).arg(data.size()));
+    // 更新窗口标题（含周期信息）
+    QString periodStr;
+    if (m_baseMinutes >= 1440) periodStr = QStringLiteral("日线");
+    else if (m_baseMinutes >= 240) periodStr = QStringLiteral("%1H").arg(m_baseMinutes / 60);
+    else periodStr = QStringLiteral("%1min").arg(m_baseMinutes);
+    setWindowTitle(QStringLiteral("模拟回放 - %1 [%2] (%3 根K线)")
+        .arg(m_symbol).arg(periodStr).arg(data.size()));
+
+    m_logText->append(QStringLiteral("已加载: %1  周期: %2  共 %3 根 K 线")
+        .arg(file).arg(periodStr).arg(data.size()));
 
     resetSimulation();
 
@@ -256,7 +286,7 @@ void SimWindow::onOpenFile()
     m_playBtn->setEnabled(true);
     m_stopBtn->setEnabled(true);
     m_seekSlider->setEnabled(true);
-    statusBar()->showMessage(QStringLiteral("已加载 %1 根 K 线，按 ▶ 开始回放").arg(data.size()));
+    statusBar()->showMessage(QStringLiteral("已加载 %1 根 %2 K线，按 ▶ 开始回放").arg(data.size()).arg(periodStr));
 }
 
 void SimWindow::onPlayPause()
@@ -275,6 +305,10 @@ void SimWindow::onStop()
     m_engine->stop();
     // 清空 K 线图显示
     m_kline->setData(QVector<Candle>());
+    // 清除 IndicatorCalculator 缓存
+    if (!m_symbol.isEmpty() && m_baseMinutes > 0) {
+        IndicatorCalculator::instance().clearCache(m_symbol, m_baseMinutes);
+    }
     statusBar()->showMessage(QStringLiteral("已停止"));
     m_logText->append(QStringLiteral("模拟已停止"));
 }
@@ -299,13 +333,33 @@ void SimWindow::onProgressChanged(int index, int total)
 
 void SimWindow::onCandleReady(int index, const Candle &candle)
 {
-    Q_UNUSED(candle)
-    // 每次进一根新的 K 线，就把它追加到 K 线图里
-    // 构建从 0 到当前索引的数据子集
-    QVector<Candle> subset = m_allData.mid(0, index + 1);
-    m_kline->setData(subset);
-    // 自动滚动到最新
-    // KLineWidget 的 paintEvent 会自动显示最新数据
+    if (index == 0) {
+        // 首次仅初始化品种和周期设置
+        if (!m_symbol.isEmpty() && m_baseMinutes > 0) {
+            m_kline->setSymbol(m_symbol);
+            m_kline->setConnectionStatus(true);
+        }
+
+        QVector<Candle> first;
+        first.append(candle);
+        // !! 必须传入正确周期，避免 setData(data)→setData(data,1) 覆盖 baseMinutes !!
+        m_kline->setData(first, m_baseMinutes);
+
+        // 首次推送：预计算指标到 IndicatorCalculator
+        QVector<Candle> curData = m_kline->allData();
+        if (!curData.isEmpty()) {
+            IndicatorCalculator::instance().updateIndicators(m_symbol, m_baseMinutes, curData);
+        }
+    } else {
+        // 后续只用 updateRealtimeCandle 增量更新（不再重复 setTimeframe 干扰）
+        m_kline->updateRealtimeCandle(candle);
+
+        // 实时更新 IndicatorCalculator
+        QVector<Candle> curData = m_kline->allData();
+        if (!curData.isEmpty()) {
+            IndicatorCalculator::instance().updateIndicators(m_symbol, m_baseMinutes, curData);
+        }
+    }
 }
 
 void SimWindow::onPlaybackFinished()
@@ -348,6 +402,10 @@ void SimWindow::resetSimulation()
 {
     m_engine->setData(m_allData);
     m_kline->setData(QVector<Candle>());
+    // 清除 IndicatorCalculator 缓存
+    if (!m_symbol.isEmpty() && m_baseMinutes > 0) {
+        IndicatorCalculator::instance().clearCache(m_symbol, m_baseMinutes);
+    }
     m_progressLabel->setText(QStringLiteral("0 / %1").arg(m_allData.size()));
     m_seekSlider->setValue(0);
     m_playBtn->setText(QStringLiteral("▶ 播放"));

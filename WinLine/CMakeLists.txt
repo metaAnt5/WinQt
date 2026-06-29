@@ -14,6 +14,8 @@ set(NETCORE_DIR "H:/NetCore")
 include_directories(${NETCORE_DIR})
 include_directories(${NETCORE_DIR}/asio-asio-1-38-0/include)
 include_directories(${NETCORE_DIR}/NetCore/3rd/openssl/include)
+include_directories(${NETCORE_DIR}/NetCore/3rd/lua-5.5/src)
+
 
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
@@ -25,6 +27,10 @@ set(PROJECT_SOURCES
     mainwindow.cpp mainwindow.h mainwindow.ui
     welcomewidget.cpp welcomewidget.h
     
+    # Chart Group Management
+    chartgroup.cpp chartgroup.h
+    
+
     # Chart and Indicators
     klinewidget.cpp klinewidget.h
     indicatorwidget.cpp indicatorwidget.h testdata.h
@@ -47,6 +53,16 @@ set(PROJECT_SOURCES
     # Utilities
     apppaths.cpp apppaths.h
     clickfilter.cpp clickfilter.h
+    
+    # Lua Script Engine
+    luascriptengine.cpp luascriptengine.h
+    
+    # Settings
+    settingsdialog.cpp settingsdialog.h
+    
+    # Indicator Calculator
+    indicatorcalc.cpp indicatorcalc.h
+
     drawtoolbar.h
     shapedialog.cpp shapedialog.h shapedialog.ui
     
@@ -82,7 +98,15 @@ else()
     endif()
 endif()
 
-target_link_libraries(WinLine PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Concurrent ${NETCORE_DIR}/x64/$<IF:$<CONFIG:Debug>,Debug,Release>/NetCore.lib)
+target_link_libraries(WinLine PRIVATE
+    Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Concurrent
+    ${NETCORE_DIR}/x64/$<IF:$<CONFIG:Debug>,Debug,Release>/NetCore.lib
+    ${NETCORE_DIR}/NetCore/3rd/openssl/prebuilt/windows/x64/libcrypto.lib
+    ${NETCORE_DIR}/NetCore/3rd/openssl/prebuilt/windows/x64/libssl.lib
+    ${NETCORE_DIR}/NetCore/3rd/lua-5.5/lua55.lib
+    crypt32.lib
+)
 
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.

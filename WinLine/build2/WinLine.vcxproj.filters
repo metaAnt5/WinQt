@@ -1,0 +1,227 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\mocs_compilation_Debug.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\mainwindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\welcomewidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\chartgroup.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\klinewidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\indicatorwidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\volumewidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\macdwidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\csvloader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\dataprovider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\fhdataprovider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\providerfactory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\marketsconfig.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\dataloader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\simwindow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\simengine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\simreader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\apppaths.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\clickfilter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\settingsdialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\indicatorcalc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\chartconfig.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\mocs_compilation_Release.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\mocs_compilation_MinSizeRel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\mocs_compilation_RelWithDebInfo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\welcomewidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\chartgroup.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\klinewidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\indicatorwidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\testdata.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\volumewidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\macdwidget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\csvloader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\dataprovider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\fhdataprovider.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\providerfactory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\marketsconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\dataloader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\simwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\simengine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\simreader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\apppaths.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\clickfilter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\settingsdialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\indicatorcalc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\drawtoolbar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcProtocol.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\chartconfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Debug\ui_mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Debug\ui_shapedialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Release\ui_mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Release\ui_shapedialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_MinSizeRel\ui_mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_MinSizeRel\ui_shapedialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_RelWithDebInfo\ui_mainwindow.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_RelWithDebInfo\ui_shapedialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="F:\stock\WinLineQt\WinQt\WinLine\build2\CMakeFiles\78280c2dde2594c8cfc0544e2ffce95c\autouic_(CONFIG).stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="F:\stock\WinLineQt\WinQt\WinLine\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="F:\stock\WinLineQt\WinQt\WinLine\mainwindow.ui" />
+    <None Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.ui" />
+    <None Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\autouic_Debug.stamp" />
+    <None Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\autouic_Release.stamp" />
+    <None Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\autouic_MinSizeRel.stamp" />
+    <None Include="F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\autouic_RelWithDebInfo.stamp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{0AF6CC1F-47DD-34F4-B5C7-E85756E38728}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{52EEB07F-0870-3AD0-A5C0-0E0043B8A0EB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{78BAA898-4A05-303F-9BC5-E78383AD9EA2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -61,6 +61,20 @@ local ma10 = core.ma(10, 1) -- 上一根 K 线的 10 周期均线
 local rsi14 = core.rsi(14, 0)
 ```
 
+### `core.macd(index)`
+计算 MACD 指标。返回 `dif, dea, macd_hist` 三个值。
+- `dif`: 快线（EMA12 - EMA26）
+- `dea`: 慢线（MACD 的 9 周期 EMA）
+- `macd_hist`: 柱状图（dif - dea）
+```lua
+local dif, dea, macd = core.macd(0)
+if dif and dea and macd then
+    if dif > dea and macd > 0 then
+        core.log("MACD 金叉状态")
+    end
+end
+```
+
 ### `core.highest(period, index)`
 返回最近 `period` 根 K 线内的最高价。`index`=结束位置(0=最新)。
 ```lua
@@ -122,7 +136,40 @@ end
 core.shape_remove(3)  -- 删除 id=3 的图形
 ```
 
+### `core.shape_add_fixed(type, normX, normY, text, name)`
+在固定位置上添加一个图形（不随 K 线缩放平移）。
+- `type`: 图形类型：`"Circle"`, `"Triangle"`, `"Dot"`, `"Note"`, `"Label"`
+- `normX`, `normY`: 归一化坐标 (0~1)，相对于图表区域
+- `text`: 文字内容（可选）
+- `name`: 图形名称（可选）
+返回图形的 id（整数）。
+```lua
+-- 在图表右上角画一个带文字的圆点
+local id = core.shape_add_fixed("Circle", 0.85, 0.15, "测试", "圆点1")
+```
+
+### `core.child_add(type, normX, normY, text)`
+在脚本父图形下创建子图形（必须由脚本关联的 Fixed 图形调用）。
+返回子图形 id（整数），失败返回 -1。
+```lua
+local childId = core.child_add("Triangle", 0.5, 0.3, "")
+```
+
+### `core.child_remove(id)`
+删除指定 id 的子图形。
+```lua
+core.child_remove(childId)
+```
+
+### `core.child_select(id)`
+选中指定 id 的子图形。无参数调用时取消所有选中。
+```lua
+core.child_select(childId)  -- 选中
+core.child_select()          -- 取消选中
+```
+
 ---
+
 
 ## 回调函数
 
@@ -154,10 +201,10 @@ function on_bar_new(candle, scriptName)
 end
 ```
 
-### `on_bar_update(candle)`
-当当前 K 线数据更新（实时 tick 推送）时调用。`candle` 字段同 `on_bar_new`。
+### `on_bar_update(candle, scriptName)`
+当当前 K 线数据更新（实时 tick 推送）时调用。`candle` 字段同 `on_bar_new`，`scriptName` 为脚本名称。
 ```lua
-function on_bar_update(candle)
+function on_bar_update(candle, scriptName)
     -- 实时更新逻辑
 end
 ```

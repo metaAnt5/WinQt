@@ -44,6 +44,13 @@ public:
     int currentTimeframe() const { return m_timeframe; }
     KLineWidget *klineWidget() const { return m_k; }
     QTextEdit *getLogWidget() const;
+    // Check if (symbol,tf) is ready to accept push data
+    bool canAcceptPush(const QString &symbol, int timeframe) const {
+        return m_initialized.contains(QPair<QString,int>(symbol, timeframe));
+    }
+    // Preload all symbols that have associated scripts
+    void preloadAllScriptSymbols();
+
 
 Q_SIGNALS:
     void loadStarted(const QString &symbol, int timeframe);
@@ -69,6 +76,10 @@ private:
 
     // 已初始化的 (品种, 周期) 集合
     QSet<QPair<QString,int>> m_initialized;
+
+    // 是否为全量加载（跳过本地 CSV，直接全量 RPC 拉取）
+    bool m_isFullLoad = false;
+
 
     void loadFromManagerAndDisplay(const QString &symbol, int tf);
     void loadLocalToManager(const QString &symbol, int tf, QTreeWidgetItem *symItem);

@@ -1,6 +1,7 @@
 #include "volumewidget.h"
 #include "chartconfig.h"
 #include <QPainter>
+#include <QRect>
 
 VolumeWidget::VolumeWidget(QWidget *parent) : QWidget(parent)
 {
@@ -16,6 +17,11 @@ void VolumeWidget::setViewport(int startIndex, int count) {
     m_viewStart = qBound(0, startIndex, qMax(0, m_data.size()-1));
     m_viewCount = qBound(0, count, qMax(0, m_data.size()-m_viewStart));
     update();
+}
+
+void VolumeWidget::setLayout(int /*startIndex*/, int /*visibleCount*/, double totalPer, double /*candleBodyWidth*/, QRect mainChartRect) {
+    m_totalPer = totalPer > 0 ? totalPer : 1.0;
+    m_mainLeft = mainChartRect.left();
 }
 
 void VolumeWidget::setCrosshairIndex(int index) {

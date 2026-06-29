@@ -232,6 +232,8 @@ void DataLoader::loadFromManagerAndDisplay(const QString &symbol, int tf)
     }
 
     if (m_k) {
+        // ★ 必须先设置 symbol，否则推送数据到达时 symbol 不匹配而被丢弃！
+        m_k->setSymbol(symbol);
         m_k->setData(candles, tf);
     }
 }
@@ -304,9 +306,24 @@ void DataLoader::requestLoad(const QString &symbol, int timeframeMinutes, QTreeW
     }
 
     // ============================================================
-    // 第一步：本地加载（后台线程，完成后回调 onLocalLoadDone）
+    // 跳过本地 CSV 加载，直接全量从 RPC 服务器拉取数据
+    // 不保存任何 K 线数据到本地文件
     // ============================================================
-    loadLocalToManager(symbol, timeframeMinutes, symItem);
+    if (m_impl && m_impl->isRunning()) {
+        if (logText) logText->append(QStringLiteral("正在从服务器全量获取 %1 %2min 数据...").arg(symbol).arg(timeframeMinutes));
+        // startTime=0 表示全量拉取，onRpcIncrementalDone 会清空旧数据并刷新显示
+        m_isFullLoad = true;
+        fetchRpcIncremental(symbol, timeframeMinutes, 0);
+    } else {
+        if (logText) logText->append(QStringLiteral("RPC 未连接，无法加载数据"));
+        m_loading = false;
+        if (m_k) {
+            QVector<Candle> empty;
+            m_k->setData(empty, timeframeMinutes);
+        }
+        emit loadFinished(symbol, timeframeMinutes, false);
+    }
+
 }
 
 // ============================================================
@@ -385,6 +402,9 @@ void DataLoader::loadLocalToManager(const QString &symbol, int tf, QTreeWidgetIt
 // ============================================================
 void DataLoader::onLocalLoadDone(const QString &symbol, int tf, QTreeWidgetItem *symItem)
 {
+    // ★ 立即标记为已初始化！让推送数据可以进入（不必等 RPC 增量请求完成）
+    m_initialized.insert(QPair<QString,int>(symbol, tf));
+
     // 先显示现有数据（可能不全）
     loadFromManagerAndDisplay(symbol, tf);
 
@@ -412,10 +432,21 @@ void DataLoader::fetchRpcIncremental(const QString &symbol, int tf, uint64_t sta
         QTextEdit *logText = getLogWidget();
         if (logText) logText->append(QStringLiteral("RPC 未连接，跳过增量数据获取"));
 
-        // RPC 不可用时也标记已初始化（只有本地数据）
-        m_initialized.insert(QPair<QString,int>(symbol, tf));
+        if (m_isFullLoad) {
+            // 全量加载时 RPC 不可用：显示空数据、结束 loading
+            m_isFullLoad = false;
+            if (m_k) {
+                QVector<Candle> empty;
+                m_k->setData(empty, tf);
+            }
+            finishLocalLoad(symbol, tf);
+        } else {
+            // RPC 不可用时也标记已初始化（只有本地数据）
+            m_initialized.insert(QPair<QString,int>(symbol, tf));
+        }
         return;
     }
+
 
     QTextEdit *logText = getLogWidget();
     if (startTime > 0) {
@@ -449,7 +480,7 @@ void DataLoader::fetchRpcIncremental(const QString &symbol, int tf, uint64_t sta
 }
 
 // ============================================================
-// RPC 增量加载完成回调：合并、刷新、回写、标记初始化
+// RPC 加载完成回调：合并/替换、显示、标记初始化
 // ============================================================
 void DataLoader::onRpcIncrementalDone(const QString &symbol, int tf,
                                        QTreeWidgetItem *symItem,
@@ -458,34 +489,41 @@ void DataLoader::onRpcIncrementalDone(const QString &symbol, int tf,
     QTextEdit *logText = getLogWidget();
 
     if (!rpcBars.empty()) {
-        if (logText) logText->append(QStringLiteral("服务器增量数据加载完成，共 %1 条").arg(rpcBars.size()));
+        if (logText) logText->append(QStringLiteral("服务器数据加载完成，共 %1 条").arg(rpcBars.size()));
 
-        // 合并到 KBarManager
-        KBarManager::instance().add_kbars(symbol.toStdString(), tf, rpcBars);
-
-        // 刷新显示
-        std::vector<KBar> allBars = KBarManager::instance().latest_kbars(
-            symbol.toStdString(), tf,
-            std::min<size_t>(KBarManager::instance().kbar_count(symbol.toStdString(), tf), 6000));
-
-        if (!allBars.empty()) {
-            QVector<Candle> candles = kbarVectorToCandles(allBars);
-            if (m_k && symbol == m_symbol && tf == m_timeframe) {
-                m_k->setData(candles, tf);
-            }
+        if (m_isFullLoad) {
+            // ★ 全量加载：清空旧数据，写入全新数据，立即显示，不保存到本地 CSV
+            KBarManager::instance().clear(symbol.toStdString(), tf);
+            KBarManager::instance().add_kbars(symbol.toStdString(), tf, rpcBars);
+            loadFromManagerAndDisplay(symbol, tf);
+            m_isFullLoad = false;
+            // 结束 loading 状态
+            finishLocalLoad(symbol, tf);
+            if (logText) logText->append(QStringLiteral("%1 %2min 全量加载完成，已显示").arg(symbol).arg(tf));
+        } else {
+            // ★ 增量加载（来自 onLocalLoadDone 触发）：合并到 KBarManager，不刷新显示
+            KBarManager::instance().add_kbars(symbol.toStdString(), tf, rpcBars);
+            // 追加写入本地 CSV（仅增量模式下保留）
+            appendToLocalFile(symbol, tf, symItem, rpcBars);
+            if (logText) logText->append(QStringLiteral("%1 %2min 增量加载完成").arg(symbol).arg(tf));
         }
-
-        // 追加写入本地 CSV
-        appendToLocalFile(symbol, tf, symItem, rpcBars);
-
-        if (logText) logText->append(QStringLiteral("%1 %2min 加载完成").arg(symbol).arg(tf));
     } else {
         if (logText) logText->append(QStringLiteral("服务器返回空数据"));
+        if (m_isFullLoad) {
+            // 全量模式但服务器返回空：显示空数据
+            m_isFullLoad = false;
+            if (m_k) {
+                QVector<Candle> empty;
+                m_k->setData(empty, tf);
+            }
+            finishLocalLoad(symbol, tf);
+        }
     }
 
     // 标记已初始化
     m_initialized.insert(QPair<QString,int>(symbol, tf));
 }
+
 
 // ============================================================
 // 将新 K 线数据追加写入本地 CSV

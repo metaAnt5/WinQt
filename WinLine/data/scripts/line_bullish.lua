@@ -1,0 +1,48 @@
+-- line_bullish.lua
+-- 收线在趋势线/水平线上方 → 飞书提醒（看涨）
+
+function on_init(params)
+    core.log("line_bullish initialized (收线看涨突破提醒)")
+    return true
+end
+
+-- 当前交易对
+local symbol = ""
+local tf = 0
+
+-- 是否已经加载过参数（避免重复打印日志）
+local params_loaded = false
+
+function on_bar_new(candle, script_name)
+    -- 只在初始化时更新 symbol/tf，避免每次都重新取
+    if not params_loaded then
+        symbol = candle.symbol
+        tf = candle.timeframe
+        params_loaded = true
+    end
+
+    -- 获取线价格
+    local price = core.get_shape_price(script_name)
+    if not price then
+        return
+    end
+
+    -- 使用上一根完成的 K 线（index=1）
+    local prev = core.bar(1)
+    if not prev then
+        return
+    end
+
+    local close_price = prev.close
+    if close_price > price then
+        local msg = string.format(
+            "【收线看涨提醒】%s %dmin\n" ..
+            "线价格: %.2f\n" ..
+            "收盘价: %.2f\n" ..
+            "时间: %s",
+            symbol, tf, price, close_price, candle.time
+        )
+        core.send_feishu(msg)
+        core.log("line_bullish feishu sent: " .. msg)
+    end
+end

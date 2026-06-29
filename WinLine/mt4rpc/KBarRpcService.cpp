@@ -355,20 +355,8 @@ private:
             pending_responses_.clear();
         }
 
-        // 如果是自动重连
-        if (running_ && config_.auto_reconnect) {
-            log_msg(std::string("[RPC] Auto-reconnecting in ") + std::to_string(config_.reconnect_interval_ms) + "ms...");
-            std::this_thread::sleep_for(std::chrono::milliseconds(config_.reconnect_interval_ms));
-            if (running_) {
-                log_msg("[RPC] Reconnecting...");
-                asio::co_spawn(io_mgr_->get_io_context(),
-                    [this]() -> asio::awaitable<void> {
-                        co_await connect_and_read_loop();
-                    },
-                    asio::detached);
-            }
-        }
-
+        // 重连逻辑由 connect_and_read_loop() 处理，此处不做处理
+        // 注意：不要在此处调用 std::this_thread::sleep_for 阻塞 io_context 线程
         co_return;
     }
 
