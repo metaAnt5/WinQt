@@ -517,10 +517,10 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
                 return;
             }
             if (m_movingShape) {
+                QPointF delta = QPointF(event->pos()) - QPointF(m_lastMousePos);
                 QPointF oldP1, oldP2;
                 dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
                 dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
-                QPointF delta = event->pos() - oldP1;
                 QPointF newP1 = oldP1 + delta;
                 QPointF newP2 = oldP2 + delta;
                 screenToDataCoord(newP1, s.candleIdx1, s.price1);
@@ -547,11 +547,10 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
                 return;
             }
             if (m_movingShape && (event->buttons() & Qt::LeftButton)) {
+                QPointF delta = QPointF(event->pos()) - QPointF(m_lastMousePos);
                 QPointF oldP1, oldP2;
                 dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
                 dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
-                QPointF delta = event->pos() - oldP1;
-                // apply delta back to data coords
                 QPointF newP1 = oldP1 + delta;
                 QPointF newP2 = oldP2 + delta;
                 screenToDataCoord(newP1, s.candleIdx1, s.price1);
