@@ -1318,6 +1318,7 @@ void KLineWidget::editShapeProperties(int index)
         s.scriptName = newScript;
         s.scriptParams = paramEdit->text().trimmed();
 
+        saveShapes();
         update();
         emit shapesChanged();
     }

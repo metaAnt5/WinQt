@@ -658,6 +658,8 @@ int main(int argc, char *argv[])
             s.scriptName = newScript;
             s.scriptParams = newParams;
             k->setShapes(shapes);
+            // ★ 立即保存到磁盘！避免切换周期后脚本关联丢失
+            k->saveShapes();
             // 加载新脚本
             if (!newScript.isEmpty()) {
                 QString scriptFile = newScript;
