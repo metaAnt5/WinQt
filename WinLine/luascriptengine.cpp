@@ -728,6 +728,16 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
     lua_State *L = (lua_State*)m_state;
     if (!L) return;
 
+    // 设置当前事件上下文（symbol, timeframe），供 core.xxx API 通过 resolveKLineWidget() 查找正确的 KLineWidget
+    m_currentSymbol = symbol;
+    m_currentTimeframe = timeframe;
+
+    // 获取当前 K 线在 allData 中的索引（用于 core.bar(0) 等 API 定位最新数据）
+    KLineWidget *kw_for_idx = resolveKLineWidget();
+    int candleIndex = (kw_for_idx && !kw_for_idx->allData().isEmpty())
+                      ? kw_for_idx->allData().size() - 1 : 0;
+    m_currentCandleIndex = candleIndex;
+
     // 遍历所有已加载的脚本
     for (auto it = m_loadedScripts.begin(); it != m_loadedScripts.end(); ++it) {
         const QString &scriptName = it.key();
@@ -743,11 +753,15 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
             continue; // 绑定周期比基础周期还小，不可能发生，跳过
         }
 
+        // 设置当前脚本上下文（供 core.get_shape_price 等 API 使用）
+        m_currentScriptName = scriptName;
+
         // 检查对应的回调函数
         const char *funcName = isNewBar ? "on_bar_new" : "on_bar_update";
         lua_getglobal(L, funcName);
         if (lua_type(L, -1) != LUA_TFUNCTION) {
             lua_pop(L, 1);
+            m_currentScriptName.clear();
             continue;
         }
 
@@ -762,10 +776,7 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
         lua_pushstring(L, "close"); lua_pushnumber(L, candle.close); lua_settable(L, -3);
         lua_pushstring(L, "volume"); lua_pushnumber(L, candle.volume); lua_settable(L, -3);
         // index: 当前 K 线在 allData 中的真实索引
-        KLineWidget *kw_for_idx = this->klineWidget();
-        int realIdx = (kw_for_idx && !kw_for_idx->allData().isEmpty())
-                      ? kw_for_idx->allData().size() - 1 : 0;
-        lua_pushstring(L, "index"); lua_pushinteger(L, realIdx); lua_settable(L, -3);
+        lua_pushstring(L, "index"); lua_pushinteger(L, candleIndex); lua_settable(L, -3);
 
         // 第二个参数：脚本名称（用于 core.get_shape_price）
         lua_pushstring(L, scriptName.toUtf8().constData());
@@ -777,12 +788,58 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
             lua_pop(L, 1);
             emit scriptError(scriptName, err);
         }
+
+        // 清理当前脚本名
+        m_currentScriptName.clear();
     }
+
+    // 清理事件上下文
+    m_currentSymbol.clear();
+    m_currentTimeframe = 0;
+    m_currentCandleIndex = -1;
+}
+
+void LuaScriptEngine::registerKLineWidget(KLineWidget *kw)
+{
+    if (!kw) return;
+    QString key = kw->symbol() + "|" + QString::number(kw->baseMinutes());
+    m_klineWidgetRegistry[key] = kw;
+}
+
+void LuaScriptEngine::unregisterKLineWidget(KLineWidget *kw)
+{
+    if (!kw) return;
+    QString key = kw->symbol() + "|" + QString::number(kw->baseMinutes());
+    m_klineWidgetRegistry.remove(key);
+    if (m_klineWidget == kw) {
+        m_klineWidget = nullptr;
+    }
+}
+
+KLineWidget *LuaScriptEngine::klineWidgetFor(const QString &symbol, int timeframe) const
+{
+    QString key = symbol + "|" + QString::number(timeframe);
+    auto it = m_klineWidgetRegistry.find(key);
+    if (it != m_klineWidgetRegistry.end()) {
+        return it.value();
+    }
+    return nullptr;
+}
+
+KLineWidget *LuaScriptEngine::resolveKLineWidget() const
+{
+    // 优先根据当前脚本上下文 (symbol, timeframe) 从注册表查找
+    if (!m_currentSymbol.isEmpty() && m_currentTimeframe > 0) {
+        KLineWidget *kw = klineWidgetFor(m_currentSymbol, m_currentTimeframe);
+        if (kw) return kw;
+    }
+    // 回退：使用主图
+    return m_klineWidget;
 }
 
 KLineWidget *LuaScriptEngine::klineWidget() const
 {
-    return m_klineWidget;
+    return resolveKLineWidget();
 }
 
 void LuaScriptEngine::reloadShapesForSymbol(const QString &symbol, int timeframe)

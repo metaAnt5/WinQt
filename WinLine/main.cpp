@@ -217,14 +217,16 @@ int main(int argc, char *argv[])
         logText->append(QStringLiteral("[Lua Error] %1: %2").arg(scriptName, error));
     });
 
+    // 注册主 KLineWidget 到引擎
+    luaEngine->registerKLineWidget(k);
+
     // 连接 K 线更新信号到脚本引擎（通过 requestBarEvent 实现跨线程安全调度）
     QObject::connect(k, &KLineWidget::candleUpdated, k,
-        [luaEngine](const Candle &candle, bool isNewBar) {
-        if (!luaEngine->klineWidget()) return;
-        luaEngine->requestBarEvent(
-            luaEngine->klineWidget()->symbol(),
-            luaEngine->klineWidget()->baseMinutes(),
-            candle, isNewBar);
+        [k, luaEngine](const Candle &candle, bool isNewBar) {
+        const QString &sym = k->symbol();
+        int tf = k->baseMinutes();
+        if (sym.isEmpty() || tf <= 0) return;
+        luaEngine->requestBarEvent(sym, tf, candle, isNewBar);
     });
 
     // shapesLoaded 信号：当从文件加载完图形后，加载关联的脚本
