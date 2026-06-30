@@ -39,37 +39,51 @@ inline QToolBar* createDrawingToolbar(KLineWidget *k, QWidget *parent)
 
     // Normal: 鼠标指针
     QIcon iconNormal = makeIcon([](QPainter &p){
-        p.setPen(QPen(Qt::white, 1.5));
-        p.drawLine(4,4, 4,20); p.drawLine(4,4, 16,12);
-        p.drawLine(4,12, 12,16); p.drawLine(16,12, 20,20);
+        p.setPen(QPen(Qt::white, 2));
+        p.drawLine(3,3, 3,21);
+        p.drawLine(3,3, 15,10);
+        p.drawLine(3,12, 12,17);
+        p.drawLine(15,10, 21,21);
     });
-    // Line: 无限延伸的直线
+    // Line（水平线）：一条水平横线 + 左侧小圆点，表示单点创建水平线
     QIcon iconLine = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(200,200,50), 2));
-        p.drawLine(3,21, 21,3);
+        p.setPen(QPen(QColor(200,200,50), 2.5));
+        p.drawLine(2,12, 22,12);
         p.setBrush(QColor(200,200,50));
-        p.drawEllipse(QPoint(3,21), 2,2); p.drawEllipse(QPoint(21,3), 2,2);
+        p.drawEllipse(QPoint(3,12), 3,3);
     });
-    // Trend: 射线
+    // Trend（趋势线/射线）：从起点出发的斜线 + 末端箭头
     QIcon iconTrend = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(100,200,255), 2));
-        p.drawLine(4,20, 18,6);
-        p.setBrush(QColor(100,200,255));
-        p.drawEllipse(QPoint(4,20), 2,2);
+        p.setPen(QPen(QColor(80,180,255), 2.5));
+        p.drawLine(3,21, 13,7);
+        // 箭头
+        p.setBrush(QColor(80,180,255));
+        QPolygonF arrow;
+        arrow << QPointF(13,7) << QPointF(9,12) << QPointF(17,11);
+        p.drawPolygon(arrow);
+        // 起点圆点
+        p.drawEllipse(QPoint(3,21), 2,2);
     });
-    // UpTriangle
+    // UpTriangle（上三角/买入标记）
     QIcon iconUp = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(100,255,100), 2));
-        p.setBrush(QColor(100,255,100));
-        QPolygonF tri; tri << QPointF(12,2) << QPointF(4,18) << QPointF(20,18);
+        p.setPen(QPen(QColor(80,255,80), 2));
+        p.setBrush(QColor(80,255,80));
+        QPolygonF tri; tri << QPointF(12,3) << QPointF(3,19) << QPointF(21,19);
         p.drawPolygon(tri);
+        // 中间的 + 号
+        p.setPen(QPen(Qt::darkGreen, 2));
+        p.drawLine(12,8, 12,15);
+        p.drawLine(8,11, 16,11);
     });
-    // DownTriangle
+    // DownTriangle（下三角/卖出标记）
     QIcon iconDown = makeIcon([](QPainter &p){
-        p.setPen(QPen(QColor(255,100,100), 2));
-        p.setBrush(QColor(255,100,100));
-        QPolygonF tri; tri << QPointF(12,22) << QPointF(4,6) << QPointF(20,6);
+        p.setPen(QPen(QColor(255,80,80), 2));
+        p.setBrush(QColor(255,80,80));
+        QPolygonF tri; tri << QPointF(12,21) << QPointF(3,5) << QPointF(21,5);
         p.drawPolygon(tri);
+        // 中间的 - 号
+        p.setPen(QPen(Qt::darkRed, 2));
+        p.drawLine(8,13, 16,13);
     });
     // Fixed: Dot + text
     QIcon iconFixedDot = makeIcon([](QPainter &p){

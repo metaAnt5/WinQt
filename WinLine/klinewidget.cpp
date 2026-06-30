@@ -479,9 +479,31 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             ns.candleIdx2 = ns.candleIdx1; ns.price2 = ns.price1;
 
             // For Line/Trend: wait for second click
-            if (ns.type == Shape_Line || ns.type == Shape_Trend) {
+            if (ns.type == Shape_Trend) {
+                // 趋势线（射线）：等待第二次点击确定终点
                 m_drawing = true;
                 m_draggingEndpoint = 2;
+                m_shapes.append(ns);
+                m_selectedShapeIndex = m_shapes.size() - 1;
+                m_lastMousePos = event->pos();
+                update();
+                setFocus();
+                emit shapesChanged();
+                return;
+            }
+
+            if (ns.type == Shape_Line) {
+                // 水平线：单次点击立即创建水平线
+                ns.price2 = ns.price1;               // 水平，价格相同
+                ns.candleIdx2 = qMax(0, m_data.size() - 1); // 延伸到最右
+                int id = addShape(ns);
+                Q_UNUSED(id)
+                saveShapes();
+                emit shapesChanged();
+                // 保持线工具模式，可继续画多条水平线
+                update();
+                setFocus();
+                return;
             }
 
             m_shapes.append(ns);
@@ -1589,9 +1611,12 @@ void KLineWidget::snapCrosshairTo(const QPointF &pos)
 
 void KLineWidget::updateRealtimeCandle(const Candle &c)
 {
+    bool newBar = false;
+
     if (m_data.isEmpty()) {
         // 首根 K 线，直接追加
         m_data.append(c);
+        newBar = true;
     } else {
         const Candle &last = m_data.last();
         qint64 diffSecs = qAbs(last.date.secsTo(c.date));
@@ -1602,9 +1627,11 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
         if (diffSecs <= toleranceSecs) {
             // 同根更新（时间戳在容差范围内视为同一根 K 线）
             m_data.last() = c;
+            newBar = false;
         } else if (c.date > last.date) {
             // 新 K 线（确保时间确实更晚才追加）
             m_data.append(c);
+            newBar = true;
         } else {
             return; // 旧数据忽略
         }
@@ -1632,12 +1659,6 @@ void KLineWidget::updateRealtimeCandle(const Candle &c)
     updateRange();
     calculateMovingAverages();
 
-    // ======== newBar 修复：比较上一根K线（而非自身）========
-    bool newBar = false;
-    if (m_data.size() >= 2) {
-        const Candle &prev = m_data[m_data.size() - 2];
-        newBar = (c.date > prev.date);
-    }
     emit candleUpdated(c, newBar);
 
     // 先更新 ChartConfig，确保副图指标绘制时读到正确的布局参数
@@ -1717,17 +1738,14 @@ void KLineWidget::updateRealtimeLabel()
         priceColor = QColor(0, 180, 0);   // 绿色（跌）
     }
 
-    // 连接状态颜色
-    QString dotColor = m_connected ? QStringLiteral("#00FF00") : QStringLiteral("#FF0000");
+    // 连接状态字符
+    QString dotChar = m_connected ? QStringLiteral("●") : QStringLiteral("●");
 
-    QString text = QStringLiteral("<span style='color:%1;'>&#9679;</span> "
-                                  "<span style='color:%2;'>%3 %4</span> "
-                                  "<span style='color:%5;'>%6%7</span>")
-        .arg(dotColor)
-        .arg(priceColor.name())
+    // 使用纯文本，避免 RichText 渲染的 Qt 内部崩溃
+    QString text = QStringLiteral("%1 %2 %3 %4%5")
+        .arg(dotChar)
         .arg(arrow)
         .arg(m_lastPrice, 0, 'f', 2)
-        .arg(priceColor.name())
         .arg(change >= 0 ? "+" : "")
         .arg(change, 0, 'f', 2);
 

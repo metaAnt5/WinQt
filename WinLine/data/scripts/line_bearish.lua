@@ -21,8 +21,16 @@ function on_bar_new(candle, script_name)
         params_loaded = true
     end
 
-    -- 获取线价格
-    local price = core.get_shape_price(script_name)
+    -- 计算上一根完成的 K 线的绝对索引
+    -- bar(1) 对应 data[data.size() - 2]，所以绝对索引 = bars_count() - 2
+    local total_bars = core.bars_count()
+    local prev_idx = total_bars - 2
+    if prev_idx < 0 then
+        return
+    end
+
+    -- 获取线价格（传入K线索引，支持趋势线插值计算）
+    local price = core.get_shape_price(script_name, prev_idx)
     if not price then
         return
     end

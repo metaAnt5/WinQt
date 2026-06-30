@@ -247,7 +247,7 @@ static int lua_core_send_feishu(lua_State *L)
     }
     // 回放模式不发送
     if (engine->isReplayMode()) return 0;
-    sender->SendMarkdown(msg, nullptr);
+    sender->SendMarkdown(msg, [](const NetCore::HttpResponse &) {});
     return 0;
 }
 
@@ -311,11 +311,32 @@ static int lua_core_get_shape_price(lua_State *L)
         return 1;
     }
 
+    // 第二个参数（可选）：K 线绝对索引。
+    // 对于 Trend 线，用于计算该索引处的插值价格；
+    // 对于水平线和其他类型，仍返回 price1 固定值。
+    int candleIdx = -1;
+    if (lua_gettop(L) >= 2) {
+        candleIdx = (int)luaL_checkinteger(L, 2);
+    }
+
     QString sn = QString::fromUtf8(scriptName);
     const auto shapes = kw->shapes();
     for (const auto &s : shapes) {
         if (s.scriptName == sn || s.scriptName == sn + ".lua") {
-            lua_pushnumber(L, s.price1);
+            // Trend 线 + 提供了 K 线索引：两点之间线性插值
+            if (s.type == KLineWidget::Shape_Trend && candleIdx >= 0) {
+                int dx = s.candleIdx2 - s.candleIdx1;
+                if (dx == 0) {
+                    lua_pushnumber(L, s.price1);
+                } else {
+                    double t = double(candleIdx - s.candleIdx1) / double(dx);
+                    double price = s.price1 + (s.price2 - s.price1) * t;
+                    lua_pushnumber(L, price);
+                }
+            } else {
+                // 水平线（Line）和其他类型：返回 price1 固定值
+                lua_pushnumber(L, s.price1);
+            }
             return 1;
         }
     }

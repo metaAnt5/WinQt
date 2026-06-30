@@ -316,7 +316,7 @@ int main(int argc, char *argv[])
         // 推送数据到达 -> 写入 KBarManager + 实时更新 K 线图（跨线程安全）
         // 只有该 (品种, 周期) 状态为 Loaded 时才接受推送
         QObject::connect(loader, &DataLoader::pushDataReady, klineWidget,
-            [klineWidget, loader](const QString &symbol, int timeFrame,
+            [klineWidget, loader, luaEngine](const QString &symbol, int timeFrame,
                           uint64_t time, double open, double high,
                           double low, double close, double volume)
         {
@@ -330,6 +330,11 @@ int main(int argc, char *argv[])
             // 只处理当前正在显示的品种和周期，更新 K 线图
             if (symbol != klineWidget->symbol() || timeFrame != klineWidget->baseMinutes()) {
                 return;
+            }
+
+            // 收到实时数据推送，退出回放模式（确保飞书消息、信号等能正常发送）
+            if (luaEngine) {
+                luaEngine->setReplayMode(false);
             }
 
             // 构造单根 Candle
