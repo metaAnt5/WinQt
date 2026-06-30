@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
         QObject::connect(loader, &DataLoader::connectionStatusChanged, klineWidget,
             &KLineWidget::setConnectionStatus);
 
-        // 推送数据到达 -> 写入 KBarManager + 实时更新 K 线图（跨线程安全）
+        // 推送数据到达 -> 触发脚本引擎 + 实时更新 K 线图（跨线程安全）
         // 只有该 (品种, 周期) 状态为 Loaded 时才接受推送
         QObject::connect(loader, &DataLoader::pushDataReady, klineWidget,
             [klineWidget, loader, luaEngine](const QString &symbol, int timeFrame,
@@ -328,11 +328,6 @@ int main(int argc, char *argv[])
             }
 
             // ★ DataLoader::Impl::on_kbar_pushed 已写入 KBarManager，此处不再重复写入
-
-            // 只处理当前正在显示的品种和周期，更新 K 线图
-            if (symbol != klineWidget->symbol() || timeFrame != klineWidget->baseMinutes()) {
-                return;
-            }
 
             // 收到实时数据推送，退出回放模式（确保飞书消息、信号等能正常发送）
             if (luaEngine) {
@@ -348,8 +343,24 @@ int main(int argc, char *argv[])
             c.close = close;
             c.volume = volume;
 
-            // 更新 K 线图
-            klineWidget->updateRealtimeCandle(c);
+            // ── 更新当前显示的 K 线图 ──
+            if (symbol == klineWidget->symbol() && timeFrame == klineWidget->baseMinutes()) {
+                // updateRealtimeCandle 内部会发射 candleUpdated -> 触发 luaEngine->requestBarEvent
+                klineWidget->updateRealtimeCandle(c);
+            } else {
+                // ── 非当前显示周期：手动提交到脚本引擎 ──
+                // 这样即使主图显示的是 15m，关联了 5m 图形/脚本的收线提醒等依然能正常运行
+                if (luaEngine) {
+                    // 从 KBarManager 判断是否为新 K 线（最后一条 vs 倒数第二条的时间）
+                    bool isNew = true;
+                    auto bars = KBarManager::instance().get_kbars(symbol.toStdString(), timeFrame);
+                    if (bars.size() >= 2) {
+                        const KBar &prev = bars[bars.size() - 2];
+                        isNew = (QDateTime::fromSecsSinceEpoch(static_cast<qint64>(prev.time)) < c.date);
+                    }
+                    luaEngine->requestBarEvent(symbol, timeFrame, c, isNew);
+                }
+            }
         });
 
         // 启动预加载：扫描 data/shapes/ 目录，找出所有关联了脚本的品种+周期，按各自周期预加载
