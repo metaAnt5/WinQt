@@ -41,16 +41,16 @@ function on_bar_new(candle, script_name)
         return
     end
 
-    local close_price = prev.close
-    if close_price < price then
-        local msg = string.format(
-            "【收线看跌提醒】%s %dmin\n" ..
-            "线价格: %.2f\n" ..
-            "收盘价: %.2f\n" ..
-            "时间: %s",
-            symbol, tf, price, close_price, candle.time
-        )
-        core.send_feishu(msg)
-        core.log("line_bearish feishu sent: " .. msg)
-    end
+        local close_price = prev.close
+        if close_price < price then
+            local msg = string.format(
+                "【收线看跌提醒】%s %dmin\n" ..
+                "线价格: %.2f\n" ..
+                "收盘价: %.2f\n" ..
+                "时间: %s",
+                symbol, tf, price, close_price, candle.time
+            )
+            core.send_feishu(msg)
+            core.log("line_bearish feishu sent: " .. msg)
+        end
 end

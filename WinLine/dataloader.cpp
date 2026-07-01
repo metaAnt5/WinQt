@@ -261,6 +261,20 @@ void DataLoader::finishLocalLoad(const QString &symbol, int tf)
 // ============================================================
 void DataLoader::requestLoad(const QString &symbol, int timeframeMinutes, QTreeWidgetItem *symItem)
 {
+    // ★ 如果请求的 (symbol, tf) 已经初始化过了，直接显示缓存数据，不阻塞
+    QPair<QString,int> reqKey(symbol, timeframeMinutes);
+    if (m_initialized.contains(reqKey)) {
+        QTextEdit *log = getLogWidget();
+        if (log) log->append(QStringLiteral("%1 %2min 已初始化，直接显示").arg(symbol).arg(timeframeMinutes));
+        // ★ 必须先更新 m_symbol/m_timeframe，否则 finishLocalLoad 中的条件检查会失败
+        m_symbol = symbol;
+        m_timeframe = timeframeMinutes;
+        m_symItem = symItem;
+        loadFromManagerAndDisplay(symbol, timeframeMinutes);
+        finishLocalLoad(symbol, timeframeMinutes);
+        return;
+    }
+
     if (m_loading) {
         QTextEdit *log = getLogWidget();
         if (log) log->append(QStringLiteral("正在加载 %1 %2min, 请等待...").arg(symbol).arg(timeframeMinutes));
@@ -293,17 +307,6 @@ void DataLoader::requestLoad(const QString &symbol, int timeframeMinutes, QTreeW
 
     QTextEdit *logText = getLogWidget();
     if (logText) logText->append(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(timeframeMinutes));
-
-    // ============================================================
-    // 第 0 步：检查 (品种,周期) 是否已初始化过
-    // ============================================================
-    QPair<QString,int> key(symbol, timeframeMinutes);
-    if (m_initialized.contains(key)) {
-        if (logText) logText->append(QStringLiteral("%1 %2min 已初始化，直接显示").arg(symbol).arg(timeframeMinutes));
-        loadFromManagerAndDisplay(symbol, timeframeMinutes);
-        finishLocalLoad(symbol, timeframeMinutes);
-        return;
-    }
 
     // ============================================================
     // 跳过本地 CSV 加载，直接全量从 RPC 服务器拉取数据

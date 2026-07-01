@@ -1792,8 +1792,17 @@ void KLineWidget::saveShapes()
     QDir().mkpath(QFileInfo(path).absolutePath());
     emit shapesSaved(m_symbol, m_baseMinutes);
     if (m_shapes.isEmpty()) {
-        // empty shapes: remove file if exists
-        QFile::remove(path);
+        // ★ 不再删除空文件！只清空内容（保留文件，避免切换周期时丢失 shape 配置信息）
+        // 写入空的 JSON 结构，保留 symbol/timeframe/nextId
+        QJsonObject root;
+        root["symbol"] = m_symbol;
+        root["timeframe"] = m_baseMinutes;
+        root["nextId"] = m_nextShapeId;
+        root["shapes"] = QJsonArray();
+        QFile f(path);
+        if (f.open(QIODevice::WriteOnly)) {
+            f.write(QJsonDocument(root).toJson(QJsonDocument::Indented));
+        }
         return;
     }
 

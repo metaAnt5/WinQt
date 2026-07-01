@@ -229,31 +229,8 @@ int main(int argc, char *argv[])
         luaEngine->requestBarEvent(sym, tf, candle, isNewBar);
     });
 
-    // shapesLoaded 信号：当从文件加载完图形后，加载关联的脚本
-    QObject::connect(k, &KLineWidget::shapesLoaded, k,
-        [k, luaEngine]() {
-        const QString &symbol = k->symbol();
-        int tf = k->baseMinutes();
-        if (symbol.isEmpty() || tf <= 0) return;
-
-        // 先卸载该品种/周期下已绑定的所有旧脚本
-        luaEngine->unloadByBinding(symbol, tf);
-
-        // 遍历 shapes，加载关联的脚本
-        const auto &shapes = k->shapes();
-        for (const auto &shape : shapes) {
-            if (!shape.scriptName.isEmpty()) {
-                QString scriptFile = shape.scriptName;
-                if (scriptFile.endsWith(".lua", Qt::CaseInsensitive)) {
-                    scriptFile = scriptFile.left(scriptFile.length() - 4);
-                }
-                ScriptBinding binding;
-                binding.symbol = symbol;
-                binding.timeframe = tf;
-                luaEngine->loadScript(scriptFile, shape.scriptParams, binding);
-            }
-        }
-    });
+    // ★ loadFinished 信号已负责加载关联脚本，删除重复的 shapesLoaded 处理以避免双重加载
+    // （shapesLoaded 在 loadFinished 之前先触发，但统一在 loadFinished 中处理脚本绑定）
 
     // find KLineWidget and create DataLoader
     KLineWidget *klineWidget = k;  // 使用上面已创建的 KLineWidget
@@ -367,14 +344,15 @@ int main(int argc, char *argv[])
         // 当 shapes 保存后，刷新 Lua 引擎的 shapes 缓存
         QObject::connect(k, &KLineWidget::shapesSaved, luaEngine, &LuaScriptEngine::reloadShapesForSymbol);
         QObject::connect(luaEngine, &LuaScriptEngine::scriptsInitialized,
-            loader, [loader](const QList<QPair<QString,int>> &syms) {
+            loader, [loader, &logText](const QList<QPair<QString,int>> &syms) {
             for (const auto &pair : syms) {
-                loader->requestLoad(pair.first, pair.second, nullptr);
+                // ★ 预加载传 nullptr symItem 会被 requestLoad 拒绝，所以改为通过已初始化路径
+                // 首次直接走 requestLoad 会被 nullptr 拒绝 - 这是预期行为：
+                // 只有用户手动选择后才会加载数据。这里只记录日志。
+                logText->append(QStringLiteral("[预加载] 品种 %1 周期 %2min 有形状+脚本，等待用户选择后加载").arg(pair.first).arg(pair.second));
             }
         });
         luaEngine->loadShapesFromDisk();
-
-        // replaced by scriptsInitialized connect above
     }
 
 

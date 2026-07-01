@@ -14,6 +14,7 @@
 #include <QMutexLocker>
 #include <QThread>
 #include <QTextStream>
+#include <QTimer>
 
 // NetCore 飞书发送器
 #include <NetCore/FeishuSender.h>
@@ -234,7 +235,9 @@ static int lua_core_alert(lua_State *L)
     return 0;
 }
 
-// core.send_feishu(msg) — 异步发送飞书消息（发送完不用管）
+// core.send_feishu(msg) — 异步发送飞书消息（带完整结果日志和统计）
+static std::atomic<int> g_feishuSendCount{0};
+
 static int lua_core_send_feishu(lua_State *L)
 {
     const char *msg = luaL_checkstring(L, 1);
@@ -242,12 +245,58 @@ static int lua_core_send_feishu(lua_State *L)
     if (!engine) return 0;
     auto sender = engine->feishuSender();
     if (!sender) {
-        qDebug() << "[Lua send_feishu] FeishuSender not initialized, skipping";
+        QString log = "[send_feishu] FeishuSender not initialized, skipping";
+        qDebug().noquote() << log;
+        emit engine->scriptLog(log);
         return 0;
     }
     // 回放模式不发送
-    if (engine->isReplayMode()) return 0;
-    sender->SendMarkdown(msg, [](const NetCore::HttpResponse &) {});
+    if (engine->isReplayMode()) {
+        QString log = "[send_feishu] Replay mode, skipping send";
+        qDebug().noquote() << log;
+        emit engine->scriptLog(log);
+        return 0;
+    }
+    int seq = ++g_feishuSendCount;
+    QString fullMsg = QString::fromUtf8(msg);
+    QString preview = fullMsg.left(80);
+    QString logSend = QString("[send_feishu #%1] Scheduled (delay 60s), content:\n%2").arg(seq).arg(fullMsg);
+    qDebug().noquote() << logSend;
+    emit engine->scriptLog(logSend);
+
+    // 延迟 60 秒发送，避免短时间内连续发送被飞书限流
+    auto senderPtr = sender; // keep shared_ptr alive
+    QTimer::singleShot(60000, engine, [engine, senderPtr, seq, fullMsg]() {
+        QString logNow = QString("[send_feishu #%1] Now sending (60s delay expired)...").arg(seq);
+        qDebug().noquote() << logNow;
+        emit engine->scriptLog(logNow);
+
+        std::string msgStr = fullMsg.toStdString();
+        senderPtr->SendMarkdown(msgStr, [engine, seq, fullMsg](const NetCore::HttpResponse &resp) {
+            QString statusDesc;
+            if (resp.status_code == 200) {
+                QString body = QString::fromStdString(resp.body);
+                if (body.contains("success") || body.contains("\"code\":0"))
+                    statusDesc = "SUCCESS";
+                else if (body.contains("frequency limited"))
+                    statusDesc = "FREQUENCY_LIMITED";
+                else if (body.contains("invalid"))
+                    statusDesc = "INVALID";
+                else
+                    statusDesc = "UNKNOWN";
+            } else {
+                statusDesc = "HTTP_ERROR";
+            }
+
+            QString logResult = QString("[send_feishu #%1] Async result: status=%2(%3), result=%4")
+                                    .arg(seq)
+                                    .arg(resp.status_code)
+                                    .arg(QString::fromStdString(resp.status_text))
+                                    .arg(statusDesc);
+            qDebug().noquote() << logResult;
+            emit engine->scriptLog(logResult);
+        });
+    });
     return 0;
 }
 
@@ -743,14 +792,15 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
         const QString &scriptName = it.key();
         const ScriptBinding &binding = it.value();
 
-        // 根据绑定信息过滤：如果脚本绑定了特定品种/周期，只有匹配时才执行
+        // 根据绑定信息过滤：只执行绑定到当前品种+周期的脚本
+        // 每个周期品种的窗口独立（shape → 脚本只作用于自身的周期）
         if (!binding.symbol.isEmpty() && binding.symbol != symbol) {
             continue; // 品种不匹配，跳过
         }
-        // 基础周期（5m）的推送会影响所有高周期，因此只要 binding 的周期 >= 基础周期就触发
-        // 如果绑定周期为 0（无特定周期），也触发
-        if (binding.timeframe > 0 && timeframe > 0 && binding.timeframe < timeframe) {
-            continue; // 绑定周期比基础周期还小，不可能发生，跳过
+        // 严格匹配周期：绑定周期 == 当前推送周期 时才执行
+        // 如果绑定周期为 0（无特定周期，全局脚本），对所有周期都触发
+        if (binding.timeframe > 0 && timeframe > 0 && binding.timeframe != timeframe) {
+            continue; // 周期不匹配，跳过
         }
 
         // 设置当前脚本上下文（供 core.get_shape_price 等 API 使用）
