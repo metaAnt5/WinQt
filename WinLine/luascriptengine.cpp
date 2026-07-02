@@ -333,6 +333,7 @@ static int lua_core_shape_add(lua_State *L)
     s.price2 = price2;
     s.name = QString::fromUtf8(name);
     s.color = QColor(Qt::white);
+    s.fromScript = true; // 脚本创建的 shape 不保存到磁盘
     // Set scriptName from current script context
     LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     if (engine) {
@@ -455,7 +456,6 @@ static int lua_core_shape_remove(lua_State *L)
                                 [id](const KLineWidget::Shape &s) { return s.id == id; }),
                  shapes.end());
     kw->setShapes(shapes);
-    kw->saveShapes();
     return 0;
 }
 
@@ -487,6 +487,7 @@ static int lua_core_shape_add_fixed(lua_State *L)
     s.text = QString::fromUtf8(text);
     s.name = QString::fromUtf8(name);
     s.color = QColor(255, 200, 100);
+    s.fromScript = true; // 脚本创建的 shape 不保存到磁盘
     // Set scriptName from current script context
     LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     if (engine) {
@@ -515,7 +516,7 @@ static int lua_core_child_add(lua_State *L)
 
     int childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr), normX, normY, QString::fromUtf8(text));
     lua_pushinteger(L, childId);
-    if (kw) kw->saveShapes();
+    // 脚本创建的子 shape 不保存到磁盘（fromScript=true，在 addChildShape 中设置）
     return 1;
 }
 
@@ -528,7 +529,7 @@ static int lua_core_child_remove(lua_State *L)
 
     int childId = (int)luaL_checkinteger(L, 1);
     engine->removeChildShape(childId);
-    if (kw) kw->saveShapes();
+    // 脚本创建的 child shape 不保存到磁盘
     return 0;
 }
 
@@ -633,11 +634,9 @@ void LuaScriptEngine::registerCoreAPI()
         {"lowest",      lua_core_lowest},
         {"alert",       lua_core_alert},
         {"send_feishu", lua_core_send_feishu},
-        {"shape_add",   lua_core_shape_add},
         {"shape_remove", lua_core_shape_remove},
         {"get_shape_price", lua_core_get_shape_price},
         {"get_line_price",  lua_core_get_line_price},
-        {"shape_add_fixed", lua_core_shape_add_fixed},
         {"child_add", lua_core_child_add},
         {"child_remove", lua_core_child_remove},
         {"child_select", lua_core_child_select},
@@ -717,6 +716,12 @@ bool LuaScriptEngine::loadScript(const QString &scriptName, const QString &param
     }
 
     m_loadedScripts[scriptName] = binding;
+    // 更新 m_symbolScriptMap
+    if (!binding.symbol.isEmpty() && binding.timeframe > 0) {
+        QString key = binding.symbol + "|" + QString::number(binding.timeframe);
+        if (!m_symbolScriptMap[key].contains(scriptName))
+            m_symbolScriptMap[key].append(scriptName);
+    }
     qDebug() << "[Lua] Loaded script:" << scriptName
              << "symbol:" << binding.symbol << "tf:" << binding.timeframe;
     return true;
@@ -724,6 +729,14 @@ bool LuaScriptEngine::loadScript(const QString &scriptName, const QString &param
 
 void LuaScriptEngine::unloadScript(const QString &scriptName)
 {
+    // 从 m_symbolScriptMap 移除
+    ScriptBinding binding = m_loadedScripts.value(scriptName);
+    if (!binding.symbol.isEmpty() && binding.timeframe > 0) {
+        QString key = binding.symbol + "|" + QString::number(binding.timeframe);
+        m_symbolScriptMap[key].removeAll(scriptName);
+        if (m_symbolScriptMap[key].isEmpty())
+            m_symbolScriptMap.remove(key);
+    }
     m_loadedScripts.remove(scriptName);
     // Lua 中没法真正卸载已加载的函数，只能移除全局函数
     lua_State *L = (lua_State*)m_state;
@@ -744,6 +757,14 @@ void LuaScriptEngine::unloadByBinding(const QString &symbol, int timeframe)
         }
     }
     for (const auto &name : toRemove) {
+        // 从 m_symbolScriptMap 移除
+        ScriptBinding binding = m_loadedScripts.value(name);
+        if (!binding.symbol.isEmpty() && binding.timeframe > 0) {
+            QString key = binding.symbol + "|" + QString::number(binding.timeframe);
+            m_symbolScriptMap[key].removeAll(name);
+            if (m_symbolScriptMap[key].isEmpty())
+                m_symbolScriptMap.remove(key);
+        }
         m_loadedScripts.remove(name);
         lua_State *L = (lua_State*)m_state;
         if (L) {
@@ -777,32 +798,39 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
     lua_State *L = (lua_State*)m_state;
     if (!L) return;
 
+    // ── 更新回放状态（收到任何实时数据后，将对应 (symbol,tf) 置为实时模式） ──
+    QString replayKey = symbol + "|" + QString::number(timeframe);
+    m_replayMap[replayKey] = false; // 只要收到推送（无论是历史加载还是实时）都设为 false
+    // 兼容旧代码：全局 m_isReplay 也更新（只要有一个 (symbol,tf) 是实时，全局不算回放）
+    m_isReplay = false;
+
     // 设置当前事件上下文（symbol, timeframe），供 core.xxx API 通过 resolveKLineWidget() 查找正确的 KLineWidget
     m_currentSymbol = symbol;
     m_currentTimeframe = timeframe;
 
-    // 获取当前 K 线在 allData 中的索引（用于 core.bar(0) 等 API 定位最新数据）
-    KLineWidget *kw_for_idx = resolveKLineWidget();
-    int candleIndex = (kw_for_idx && !kw_for_idx->allData().isEmpty())
-                      ? kw_for_idx->allData().size() - 1 : 0;
-    m_currentCandleIndex = candleIndex;
-
-    // 遍历所有已加载的脚本
-    for (auto it = m_loadedScripts.begin(); it != m_loadedScripts.end(); ++it) {
-        const QString &scriptName = it.key();
-        const ScriptBinding &binding = it.value();
-
-        // 根据绑定信息过滤：只执行绑定到当前品种+周期的脚本
-        // 每个周期品种的窗口独立（shape → 脚本只作用于自身的周期）
-        if (!binding.symbol.isEmpty() && binding.symbol != symbol) {
-            continue; // 品种不匹配，跳过
+    // ── 通过 m_symbolScriptMap 直接索引当前 (symbol,tf) 的脚本 ──
+    QStringList scripts = m_symbolScriptMap.value(replayKey);
+    if (scripts.isEmpty()) {
+        // 也检查全局脚本（sym="" 或 tf=0）
+        // 直接遍历 m_loadedScripts 找全局脚本
+        for (auto it = m_loadedScripts.begin(); it != m_loadedScripts.end(); ++it) {
+            const ScriptBinding &binding = it.value();
+            if (binding.symbol.isEmpty() && binding.timeframe == 0) {
+                scripts.append(it.key());
+            } else if (binding.symbol.isEmpty() && binding.timeframe == timeframe) {
+                scripts.append(it.key());
+            } else if (binding.symbol == symbol && binding.timeframe == 0) {
+                scripts.append(it.key());
+            }
         }
-        // 严格匹配周期：绑定周期 == 当前推送周期 时才执行
-        // 如果绑定周期为 0（无特定周期，全局脚本），对所有周期都触发
-        if (binding.timeframe > 0 && timeframe > 0 && binding.timeframe != timeframe) {
-            continue; // 周期不匹配，跳过
-        }
+    }
 
+    // 回放计数
+    if (m_replayMap.value(replayKey, true)) {
+        m_replayCount++;
+    }
+
+    for (const QString &scriptName : scripts) {
         // 设置当前脚本上下文（供 core.get_shape_price 等 API 使用）
         m_currentScriptName = scriptName;
 
@@ -825,8 +853,6 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
         lua_pushstring(L, "low"); lua_pushnumber(L, candle.low); lua_settable(L, -3);
         lua_pushstring(L, "close"); lua_pushnumber(L, candle.close); lua_settable(L, -3);
         lua_pushstring(L, "volume"); lua_pushnumber(L, candle.volume); lua_settable(L, -3);
-        // index: 当前 K 线在 allData 中的真实索引
-        lua_pushstring(L, "index"); lua_pushinteger(L, candleIndex); lua_settable(L, -3);
 
         // 第二个参数：脚本名称（用于 core.get_shape_price）
         lua_pushstring(L, scriptName.toUtf8().constData());
@@ -846,7 +872,6 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
     // 清理事件上下文
     m_currentSymbol.clear();
     m_currentTimeframe = 0;
-    m_currentCandleIndex = -1;
 }
 
 void LuaScriptEngine::registerKLineWidget(KLineWidget *kw)
@@ -926,12 +951,23 @@ void LuaScriptEngine::reloadShapesForSymbol(const QString &symbol, int timeframe
         sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
         sp->scriptName = obj["scriptName"].toString();
         sp->scriptParams = obj["scriptParams"].toString();
+        sp->fromScript = false; // 从磁盘加载的 shape 不是脚本创建的
         shapes.append(sp);
         QString sn = sp->scriptName;
         if (sn.endsWith(".lua", Qt::CaseInsensitive)) sn = sn.left(sn.length() - 4);
         if (!sn.isEmpty()) m_scriptShapesIndex[sn].append(sp);
     }
     m_shapesDiskCache[key] = shapes;
+    // 重建 m_symbolScriptMap
+    m_symbolScriptMap.clear();
+    for (auto it = m_loadedScripts.begin(); it != m_loadedScripts.end(); ++it) {
+        const ScriptBinding &binding = it.value();
+        if (!binding.symbol.isEmpty() && binding.timeframe > 0) {
+            QString mapKey = binding.symbol + "|" + QString::number(binding.timeframe);
+            if (!m_symbolScriptMap[mapKey].contains(it.key()))
+                m_symbolScriptMap[mapKey].append(it.key());
+        }
+    }
 }
 
 QList<QPair<QString,int>> LuaScriptEngine::allLoadedShapeSymbols() const
@@ -961,6 +997,7 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
     s.normY = normY;
     s.text = text;
     s.color = QColor(255, 200, 100);
+    s.fromScript = true; // 脚本创建的子 shape 不保存到磁盘
     if (type.compare("Circle", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
     else if (type.compare("Triangle", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedTriangle;
     else if (type.compare("Dot", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
@@ -1146,6 +1183,24 @@ void LuaScriptEngine::loadShapesFromDisk()
         m_shapesDiskCache[key] = shapes;
         loadedSymbols.append(qMakePair(symbol, tf));
     }
+
+    // 重建 m_symbolScriptMap
+    m_symbolScriptMap.clear();
+    for (auto it = m_loadedScripts.begin(); it != m_loadedScripts.end(); ++it) {
+        const ScriptBinding &binding = it.value();
+        if (!binding.symbol.isEmpty() && binding.timeframe > 0) {
+            QString key = binding.symbol + "|" + QString::number(binding.timeframe);
+            if (!m_symbolScriptMap[key].contains(it.key()))
+                m_symbolScriptMap[key].append(it.key());
+        }
+    }
+
+    // 初始化为每个已加载的 (symbol,tf) 设置回放模式
+    for (const auto &pair : loadedSymbols) {
+        QString key = pair.first + "|" + QString::number(pair.second);
+        m_replayMap[key] = true; // 历史加载完默认回放模式
+    }
+    m_isReplay = !loadedSymbols.isEmpty(); // 兼容旧代码
 
     if (!loadedSymbols.isEmpty())
         emit scriptsInitialized(loadedSymbols);

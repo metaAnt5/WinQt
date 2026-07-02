@@ -1,5 +1,6 @@
 #include "indicatorcalc.h"
 #include "klinewidget.h"
+#include "mt4rpc/KBarManager.h"
 #include <QtMath>
 
 IndicatorCalculator& IndicatorCalculator::instance() { static IndicatorCalculator inst; return inst; }
@@ -94,11 +95,41 @@ void IndicatorCalculator::updateIndicators(const QString &symbol, int tf, const 
     m_caches[symbol + "@" + QString::number(tf)] = cache;
 }
 
-void IndicatorCalculator::appendCandle(const QString &symbol, int tf, const Candle &)
-    { QMutexLocker lock(&m_mutex); m_caches.remove(symbol + "@" + QString::number(tf)); }
+void IndicatorCalculator::appendCandle(const QString &symbol, int tf, const Candle &c)
+{
+    Q_UNUSED(c)
+    // Don't hold m_mutex while calling KBarManager (avoid deadlock)
+    auto bars = KBarManager::instance().get_kbars(symbol.toStdString(), tf);
+    QVector<Candle> allCandles;
+    allCandles.reserve(static_cast<int>(bars.size()));
+    for (const auto &kb : bars) {
+        Candle tmp;
+        tmp.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(kb.time));
+        tmp.open = kb.open; tmp.high = kb.high; tmp.low = kb.low;
+        tmp.close = kb.close; tmp.volume = static_cast<double>(kb.volume);
+        allCandles.append(tmp);
+    }
+    // updateIndicators has its own QMutexLocker
+    if (allCandles.size() >= 2)
+        updateIndicators(symbol, tf, allCandles);
+}
 
-void IndicatorCalculator::updateLastCandle(const QString &symbol, int tf, const Candle &)
-    { QMutexLocker lock(&m_mutex); m_caches.remove(symbol + "@" + QString::number(tf)); }
+void IndicatorCalculator::updateLastCandle(const QString &symbol, int tf, const Candle &c)
+{
+    Q_UNUSED(c)
+    auto bars = KBarManager::instance().get_kbars(symbol.toStdString(), tf);
+    QVector<Candle> allCandles;
+    allCandles.reserve(static_cast<int>(bars.size()));
+    for (const auto &kb : bars) {
+        Candle tmp;
+        tmp.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(kb.time));
+        tmp.open = kb.open; tmp.high = kb.high; tmp.low = kb.low;
+        tmp.close = kb.close; tmp.volume = static_cast<double>(kb.volume);
+        allCandles.append(tmp);
+    }
+    if (allCandles.size() >= 2)
+        updateIndicators(symbol, tf, allCandles);
+}
 
 IndicatorCache IndicatorCalculator::getCache(const QString &symbol, int tf) const
     { QMutexLocker lock(&m_mutex); return m_caches.value(symbol + "@" + QString::number(tf)); }

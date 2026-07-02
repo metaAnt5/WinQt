@@ -70,6 +70,7 @@ public:
         // script extension fields
         QString scriptName;        // 关联的 Lua 脚本名称（如 "ma_cross.lua"）
         QString scriptParams;      // 脚本参数（JSON 字符串，灵活扩展）
+        bool fromScript = false;   // 由脚本创建（不保存到磁盘）
     };
 
     void setToolMode(ToolMode m);

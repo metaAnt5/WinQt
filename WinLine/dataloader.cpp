@@ -283,7 +283,10 @@ void DataLoader::requestLoad(const QString &symbol, int timeframeMinutes, QTreeW
 
     // 验证 symItem 有效性
     bool invalidItem = false;
-    if (!symItem) invalidItem = true;
+    if (!symItem) {
+        // symItem=nullptr 表示后台自动加载（例如脚本预加载），跳过本地加载直接走 RPC
+        // 不显示 Loading，也不影响主界面
+    }
     else if (!symItem->treeWidget()) invalidItem = true;
     else if (symItem->childCount() > 0) invalidItem = true;
     else if (symbol.trimmed().isEmpty()) invalidItem = true;
@@ -303,7 +306,10 @@ void DataLoader::requestLoad(const QString &symbol, int timeframeMinutes, QTreeW
     m_timeframe = timeframeMinutes;
     m_symItem = symItem;
 
-    emit loadStarted(symbol, timeframeMinutes);
+    if (m_symItem) {
+        // 只有用户手动选择时才显示 Loading（symItem=nullptr 自动加载不显示 UI 层 Loading）
+        emit loadStarted(symbol, timeframeMinutes);
+    }
 
     QTextEdit *logText = getLogWidget();
     if (logText) logText->append(QStringLiteral("正在加载 %1 %2min...").arg(symbol).arg(timeframeMinutes));

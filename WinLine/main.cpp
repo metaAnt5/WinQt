@@ -263,8 +263,16 @@ int main(int argc, char *argv[])
             // 先卸载该品种/周期下已绑定的所有旧脚本
             luaEngine->unloadByBinding(symbol, tf);
 
-            // 遍历 shapes，加载关联的脚本
-            const auto &shapes = klineWidget->shapes();
+            // 遍历 shapes（先从当前 KLineWidget，再从引擎磁盘缓存），加载关联的脚本
+            auto shapes = klineWidget->shapes();
+            if (shapes.isEmpty()) {
+                // 检查引擎的磁盘缓存（自动加载的场景，shapes 在缓存中不在 KLineWidget 上）
+                QString key = symbol + "|" + QString::number(tf);
+                for (const auto &sp : luaEngine->shapesDiskCache(key)) {
+                    if (!sp->scriptName.isEmpty())
+                        shapes.append(*sp);
+                }
+            }
             for (const auto &shape : shapes) {
                 if (!shape.scriptName.isEmpty()) {
                     // 提取文件名（去掉路径），例如 "ma_cross.lua" -> "ma_cross"
@@ -322,17 +330,33 @@ int main(int argc, char *argv[])
 
             // ── 更新当前显示的 K 线图 ──
             if (symbol == klineWidget->symbol() && timeFrame == klineWidget->baseMinutes()) {
-                // updateRealtimeCandle 内部会发射 candleUpdated -> 触发 luaEngine->requestBarEvent
+                // updateRealtimeCandle 内部会发射 candleUpdated -> 触发 luaEngine->requestBarEvent + dataAggregated -> 指标计算
                 klineWidget->updateRealtimeCandle(c);
             } else {
-                // ── 非当前显示周期：手动提交到脚本引擎 ──
+                // ── 非当前显示周期：手动提交到脚本引擎 + 触发指标计算 ──
                 // 这样即使主图显示的是 15m，关联了 5m 图形/脚本的收线提醒等依然能正常运行
+                // ── 1) 更新 KBarManager（由回调已写入） ──
+                // ── 2) 更新指标缓存 ──
+                auto &calc = IndicatorCalculator::instance();
+                auto allBars = KBarManager::instance().get_kbars(symbol.toStdString(), timeFrame);
+                QVector<Candle> allCandles;
+                allCandles.reserve(static_cast<int>(allBars.size()));
+                for (const auto &kb : allBars) {
+                    Candle tmp;
+                    tmp.date = QDateTime::fromSecsSinceEpoch(static_cast<qint64>(kb.time));
+                    tmp.open = kb.open; tmp.high = kb.high; tmp.low = kb.low;
+                    tmp.close = kb.close; tmp.volume = static_cast<double>(kb.volume);
+                    allCandles.append(tmp);
+                }
+                if (allCandles.size() >= 2) {
+                    calc.updateIndicators(symbol, timeFrame, allCandles);
+                }
+                // ── 3) 更新脚本引擎 ──
                 if (luaEngine) {
                     // 从 KBarManager 判断是否为新 K 线（最后一条 vs 倒数第二条的时间）
                     bool isNew = true;
-                    auto bars = KBarManager::instance().get_kbars(symbol.toStdString(), timeFrame);
-                    if (bars.size() >= 2) {
-                        const KBar &prev = bars[bars.size() - 2];
+                    if (allBars.size() >= 2) {
+                        const KBar &prev = allBars[allBars.size() - 2];
                         isNew = (QDateTime::fromSecsSinceEpoch(static_cast<qint64>(prev.time)) < c.date);
                     }
                     luaEngine->requestBarEvent(symbol, timeFrame, c, isNew);
@@ -346,10 +370,9 @@ int main(int argc, char *argv[])
         QObject::connect(luaEngine, &LuaScriptEngine::scriptsInitialized,
             loader, [loader, &logText](const QList<QPair<QString,int>> &syms) {
             for (const auto &pair : syms) {
-                // ★ 预加载传 nullptr symItem 会被 requestLoad 拒绝，所以改为通过已初始化路径
-                // 首次直接走 requestLoad 会被 nullptr 拒绝 - 这是预期行为：
-                // 只有用户手动选择后才会加载数据。这里只记录日志。
-                logText->append(QStringLiteral("[预加载] 品种 %1 周期 %2min 有形状+脚本，等待用户选择后加载").arg(pair.first).arg(pair.second));
+                // 自动加载带脚本的 (symbol,tf) 数据（symItem=nullptr 表示后台自动加载）
+                logText->append(QStringLiteral("[预加载] 品种 %1 周期 %2min 有形状+脚本，自动加载数据...").arg(pair.first).arg(pair.second));
+                loader->requestLoad(pair.first, pair.second, nullptr);
             }
         });
         luaEngine->loadShapesFromDisk();
@@ -437,9 +460,22 @@ int main(int argc, char *argv[])
         auto &shapes = const_cast<QVector<KLineWidget::Shape>&>(k->shapes());
         auto &s = shapes[index];
 
+        // ★ 如果是子 shape（ownerShapeId > 0），跳转到父 shape 的对话框
+        int targetIndex = index;
+        if (s.ownerShapeId > 0) {
+            for (int i = 0; i < shapes.size(); ++i) {
+                if (shapes[i].id == s.ownerShapeId) {
+                    targetIndex = i;
+                    break;
+                }
+            }
+            if (targetIndex == index) return; // 找不到父 shape，不弹窗
+        }
+        auto &target = shapes[targetIndex];
+
         // 创建对话框
         QDialog dlg(k);
-        dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(s.name));
+        dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(target.name));
         dlg.setMinimumWidth(400);
         dlg.setStyleSheet(R"(
             QGroupBox {
@@ -487,14 +523,14 @@ int main(int argc, char *argv[])
 
         QLabel *infoLbl = new QLabel;
         QString infoText;
-        infoText += QStringLiteral("类型: %1\n").arg(s.type);
+        infoText += QStringLiteral("类型: %1\n").arg(target.type);
         infoText += QStringLiteral("坐标: (%1, %2) → (%3, %4)")
-            .arg(s.candleIdx1).arg(s.price1, 0, 'f', 2)
-            .arg(s.candleIdx2).arg(s.price2, 0, 'f', 2);
-        if (s.tradePrice != 0.0)
-            infoText += QStringLiteral("\n成交价: %1").arg(s.tradePrice, 0, 'f', 2);
-        if (s.profit != 0.0)
-            infoText += QStringLiteral("\n盈亏: %1%2").arg(s.profit >= 0 ? "+" : "").arg(s.profit, 0, 'f', 2);
+            .arg(target.candleIdx1).arg(target.price1, 0, 'f', 2)
+            .arg(target.candleIdx2).arg(target.price2, 0, 'f', 2);
+        if (target.tradePrice != 0.0)
+            infoText += QStringLiteral("\n成交价: %1").arg(target.tradePrice, 0, 'f', 2);
+        if (target.profit != 0.0)
+            infoText += QStringLiteral("\n盈亏: %1%2").arg(target.profit >= 0 ? "+" : "").arg(target.profit, 0, 'f', 2);
         infoLbl->setText(infoText);
         infoLbl->setStyleSheet("color: #bbb; font-size: 11px; padding: 4px;");
         infoLayout->addWidget(infoLbl);
@@ -503,14 +539,14 @@ int main(int argc, char *argv[])
         // ── 名称 ──
         QHBoxLayout *nameRow = new QHBoxLayout;
         nameRow->addWidget(new QLabel(QStringLiteral("名称:")));
-        QLineEdit *nameEdit = new QLineEdit(s.name);
+        QLineEdit *nameEdit = new QLineEdit(target.name);
         nameRow->addWidget(nameEdit, 1);
         mainLayout->addLayout(nameRow);
 
         // ── 文本内容（所有 shape 均可编辑，不限于 Fixed） ──
         QLabel *textLabel = new QLabel(QStringLiteral("文本内容:"));
         QTextEdit *textEdit = new QTextEdit;
-        textEdit->setPlainText(s.text);
+        textEdit->setPlainText(target.text);
         textEdit->setMaximumHeight(60);
         textEdit->setPlaceholderText(QStringLiteral("输入要显示的文字…"));
         mainLayout->addWidget(textLabel);
@@ -533,10 +569,10 @@ int main(int argc, char *argv[])
         auto files = dir.entryList({"*.lua"}, QDir::Files);
         for (const auto &f : files)
             scriptCombo->addItem(f);
-        if (!s.scriptName.isEmpty()) {
-            int ci = scriptCombo->findText(s.scriptName);
+        if (!target.scriptName.isEmpty()) {
+            int ci = scriptCombo->findText(target.scriptName);
             if (ci >= 0) scriptCombo->setCurrentIndex(ci);
-            else scriptCombo->setCurrentText(s.scriptName);
+            else scriptCombo->setCurrentText(target.scriptName);
         }
         scriptRow->addWidget(scriptCombo, 1);
         scriptLayout->addLayout(scriptRow);
@@ -586,8 +622,8 @@ int main(int argc, char *argv[])
             pValue[i] = ve;
         }
         // 解析现有参数填充
-        if (!s.scriptParams.isEmpty() && s.scriptParams.contains(":")) {
-            QJsonObject jo = QJsonDocument::fromJson(s.scriptParams.toUtf8()).object();
+        if (!target.scriptParams.isEmpty() && target.scriptParams.contains(":")) {
+            QJsonObject jo = QJsonDocument::fromJson(target.scriptParams.toUtf8()).object();
             int pi = 0;
             for (auto it = jo.begin(); it != jo.end() && pi < 3; ++it, ++pi) {
                 pName[pi]->setText(it.key());
@@ -612,12 +648,12 @@ int main(int argc, char *argv[])
 
         if (dlg.exec() == QDialog::Accepted) {
             // 保存名称
-            s.name = nameEdit->text().trimmed();
+            target.name = nameEdit->text().trimmed();
             // 保存文本内容
-            s.text = textEdit->toPlainText().trimmed();
+            target.text = textEdit->toPlainText().trimmed();
             // 如果之前关联了脚本，先卸载旧脚本
-            if (!s.scriptName.isEmpty()) {
-                QString oldFile = s.scriptName;
+            if (!target.scriptName.isEmpty()) {
+                QString oldFile = target.scriptName;
                 if (oldFile.endsWith(".lua", Qt::CaseInsensitive))
                     oldFile = oldFile.left(oldFile.length() - 4);
                 luaEngine->unloadScript(oldFile);
@@ -633,8 +669,8 @@ int main(int argc, char *argv[])
                     paramList << QStringLiteral("\"%1\":%2").arg(n, v);
             }
             QString newParams = "{" + paramList.join(",") + "}";
-            s.scriptName = newScript;
-            s.scriptParams = newParams;
+            target.scriptName = newScript;
+            target.scriptParams = newParams;
             k->setShapes(shapes);
             // ★ 立即保存到磁盘！避免切换周期后脚本关联丢失
             k->saveShapes();

@@ -1808,6 +1808,7 @@ void KLineWidget::saveShapes()
 
     QJsonArray arr;
     for (const auto &s : m_shapes) {
+        if (s.fromScript) continue; // 脚本创建的 shape 不保存到磁盘
         QJsonObject obj;
         obj["id"] = s.id;
         obj["type"] = static_cast<int>(s.type);

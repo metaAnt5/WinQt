@@ -129,15 +129,18 @@ public:
     // 获取当前正在执行的脚本名（供 C 回调在无显式参数时确定上下文）
     QString currentScriptName() const { return m_currentScriptName; }
 
-    // 获取当前正在处理的 K 线在 allData 中的真实索引
-    // 用于 core.bar(0)、core.kdj(0) 等 API 定位"当前最新"位置
-    int currentCandleIndex() const { return m_currentCandleIndex; }
-
     // 飞书消息发送器（供 Lua C API 回调使用）
     std::shared_ptr<FeishuSender> feishuSender() const { return m_feishuSender; }
 
     // IoContextManager 访问器（供 Lua C API 创建临时 FeishuSender 使用）
     std::shared_ptr<NetCore::IoContextManager> ioContextManager() const { return m_ioCtxMgr; }
+
+    // 获取某 (symbol,tf) 的磁盘 shapes 缓存（供 main.cpp 自动加载时使用）
+    const QVector<QSharedPointer<KLineWidget::Shape>> &shapesDiskCache(const QString &key) const {
+        static QVector<QSharedPointer<KLineWidget::Shape>> empty;
+        auto it = m_shapesDiskCache.find(key);
+        return it != m_shapesDiskCache.end() ? it.value() : empty;
+    }
 
 Q_SIGNALS:
     void scriptLog(const QString &msg);
@@ -179,8 +182,14 @@ private:
     // 当前正在执行的脚本名（由 onBarEvent / loadScript 设置）
     QString m_currentScriptName;
 
-    // 当前正在处理的 K 线在 allData 中的真实索引（由 onBarEvent 设置）
-    int m_currentCandleIndex = -1;
+    // ── (symbol|tf) → 脚本名列表，快速索引脚本 ──
+    // 在 loadShapesFromDisk / reloadShapesForSymbol 时重建
+    QHash<QString, QStringList> m_symbolScriptMap;
+
+    // ── (symbol|tf) → true（回放模式）/ false（实时模式） ──
+    // 每个 (symbol,tf) 独立控制，加载历史数据时设为 true
+    // 收到第一条实时推送后自动变为 false，飞书才可发送
+    QHash<QString, bool> m_replayMap;
 
     // 回放模式标志：默认 true（回放模式），收到第一条实时数据后自动变为 false
     // 历史加载/模拟回放时抑制 alert/send_feishu
