@@ -471,16 +471,8 @@ static int lua_core_shape_add_fixed(lua_State *L)
     const char *text = luaL_optstring(L, 4, "");
     const char *name = luaL_optstring(L, 5, "");
 
-    using ShapeType = KLineWidget::ShapeType;
-    ShapeType st = ShapeType::Shape_FixedDot;
-    if (strcmp(typeStr, "Circle") == 0 || strcmp(typeStr, "circle") == 0) st = ShapeType::Shape_FixedDot;
-    else if (strcmp(typeStr, "Triangle") == 0 || strcmp(typeStr, "triangle") == 0) st = ShapeType::Shape_FixedTriangle;
-    else if (strcmp(typeStr, "Dot") == 0 || strcmp(typeStr, "dot") == 0) st = ShapeType::Shape_FixedDot;
-    else if (strcmp(typeStr, "Note") == 0 || strcmp(typeStr, "note") == 0) st = ShapeType::Shape_FixedDot;
-    else if (strcmp(typeStr, "Label") == 0 || strcmp(typeStr, "label") == 0) st = ShapeType::Shape_FixedDot;
-
     KLineWidget::Shape s;
-    s.type = st;
+    s.type = KLineWidget::Shape_Fixed;
     s.attachment = KLineWidget::Attach_Fixed;
     s.normX = qBound(0.0, normX, 1.0);
     s.normY = qBound(0.0, normY, 1.0);
@@ -998,12 +990,8 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
     s.text = text;
     s.color = QColor(255, 200, 100);
     s.fromScript = true; // 脚本创建的子 shape 不保存到磁盘
-    if (type.compare("Circle", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
-    else if (type.compare("Triangle", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedTriangle;
-    else if (type.compare("Dot", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
-    else if (type.compare("Note", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
-    else if (type.compare("Label", Qt::CaseInsensitive) == 0) s.type = KLineWidget::Shape_FixedDot;
-    else s.type = KLineWidget::Shape_FixedDot;
+    // 所有 Fixed 类型统一为 Shape_Fixed（合并 Circle/Dot/Note/Label/Triangle）
+    s.type = KLineWidget::Shape_Fixed;
     return kw->addShape(s);
 }
 

@@ -278,17 +278,13 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
     }
 
     // Fixed-position tools: place shape at click position
-    if (m_toolMode == Tool_FixedDot || m_toolMode == Tool_FixedTriangle) {
+    if (m_toolMode == Tool_Fixed) {
         QPointF norm = screenToNorm(event->pos());
         Shape s;
         s.attachment = Attach_Fixed;
         s.normX = norm.x();
         s.normY = norm.y();
-        switch (m_toolMode) {
-            case Tool_FixedDot:      s.type = Shape_FixedDot; break;
-            case Tool_FixedTriangle: s.type = Shape_FixedTriangle; break;
-            default: break;
-        }
+        s.type = Shape_Fixed;
         s.text = QStringLiteral("Note");
         s.color = QColor(255, 200, 100);
         addShape(s);
@@ -534,24 +530,39 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             if (s.attachment == Attach_Fixed) return;
             if (m_draggingEndpoint == 1) {
                 screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
+                if (s.type == Shape_Line) s.price2 = s.price1; // 水平线锁定价格
                 update();
                 return;
             }
             if (m_draggingEndpoint == 2) {
                 screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
+                if (s.type == Shape_Line) s.price1 = s.price2; // 水平线锁定价格
                 update();
                 return;
             }
             // moving the entire shape (clicked on line body or triangle body)
             if (m_movingShape) {
                 QPointF delta = QPointF(event->pos()) - QPointF(m_lastMousePos);
-                QPointF oldP1, oldP2;
-                dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
-                dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
-                QPointF newP1 = oldP1 + delta;
-                QPointF newP2 = oldP2 + delta;
-                screenToDataCoord(newP1, s.candleIdx1, s.price1);
-                screenToDataCoord(newP2, s.candleIdx2, s.price2);
+                // 直接在数据空间做增量，避免屏幕→数据的往返量化误差
+                QRect mr = mainChartRect();
+                double priceRange = m_maxPrice - m_minPrice;
+                double tp = totalPer();
+                if (priceRange <= 0 || mr.height() <= 0 || tp <= 0) return;
+                double dPrice = -delta.y() * priceRange / mr.height();
+                int dIdx = int(delta.x() / tp + 0.5);
+                if (s.type == Shape_Line) {
+                    // 水平线：只移动价格
+                    s.price1 += dPrice;
+                    s.price2 = s.price1;
+                    // candleIdx2 保持延伸到最右
+                    if (!m_data.isEmpty())
+                        s.candleIdx2 = qMax(s.candleIdx1, m_data.size() - 1);
+                } else {
+                    s.candleIdx1 = qBound(0, s.candleIdx1 + dIdx, m_data.size() - 1);
+                    s.candleIdx2 = qBound(0, s.candleIdx2 + dIdx, m_data.size() - 1);
+                    s.price1 += dPrice;
+                    s.price2 += dPrice;
+                }
                 m_lastMousePos = event->pos();
                 update();
                 return;
@@ -575,13 +586,16 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             }
             if (m_movingShape && (event->buttons() & Qt::LeftButton)) {
                 QPointF delta = QPointF(event->pos()) - QPointF(m_lastMousePos);
-                QPointF oldP1, oldP2;
-                dataCoordToScreen(s.candleIdx1, s.price1, oldP1);
-                dataCoordToScreen(s.candleIdx2, s.price2, oldP2);
-                QPointF newP1 = oldP1 + delta;
-                QPointF newP2 = oldP2 + delta;
-                screenToDataCoord(newP1, s.candleIdx1, s.price1);
-                screenToDataCoord(newP2, s.candleIdx2, s.price2);
+                QRect mr = mainChartRect();
+                double priceRange = m_maxPrice - m_minPrice;
+                double tp = totalPer();
+                if (priceRange <= 0 || mr.height() <= 0 || tp <= 0) return;
+                double dPrice = -delta.y() * priceRange / mr.height();
+                int dIdx = int(delta.x() / tp + 0.5);
+                s.candleIdx1 = qBound(0, s.candleIdx1 + dIdx, m_data.size() - 1);
+                s.candleIdx2 = qBound(0, s.candleIdx2 + dIdx, m_data.size() - 1);
+                s.price1 += dPrice;
+                s.price2 += dPrice;
                 m_lastMousePos = event->pos();
                 update();
                 return;
@@ -1002,25 +1016,29 @@ void KLineWidget::paintEvent(QPaintEvent *event)
                 p.drawLine(screenP1, bestPt);
             }
         } else if (s.type == Shape_UpTriangle) {
-            // Draw up triangle centered at midpoint between p1 and p2
-            double cx = (screenP1.x() + screenP2.x()) / 2.0;
+            // Draw up triangle with width = candle body width, centered on candleIdx1
+            double bw = candleBodyWidth();
+            if (bw < 2.0) bw = 8.0 * m_scale;
+            double h = bw * 1.2;
+            double cx = candleCenterXForIndex(s.candleIdx1);
             double cy = (screenP1.y() + screenP2.y()) / 2.0;
-            double sz = 10.0;
             QPolygonF tri;
-            tri << QPointF(cx, cy - sz)
-                << QPointF(cx - sz * 0.8, cy + sz * 0.6)
-                << QPointF(cx + sz * 0.8, cy + sz * 0.6);
+            tri << QPointF(cx, cy - h)
+                << QPointF(cx - bw / 2.0, cy)
+                << QPointF(cx + bw / 2.0, cy);
             p.setBrush(s.color.isValid() ? s.color : QColor(100, 255, 100));
             p.drawPolygon(tri);
         } else if (s.type == Shape_DownTriangle) {
-            // Draw down triangle centered at midpoint between p1 and p2
-            double cx = (screenP1.x() + screenP2.x()) / 2.0;
+            // Draw down triangle with width = candle body width, centered on candleIdx1
+            double bw = candleBodyWidth();
+            if (bw < 2.0) bw = 8.0 * m_scale;
+            double h = bw * 1.2;
+            double cx = candleCenterXForIndex(s.candleIdx1);
             double cy = (screenP1.y() + screenP2.y()) / 2.0;
-            double sz = 10.0;
             QPolygonF tri;
-            tri << QPointF(cx, cy + sz)
-                << QPointF(cx - sz * 0.8, cy - sz * 0.6)
-                << QPointF(cx + sz * 0.8, cy - sz * 0.6);
+            tri << QPointF(cx, cy + h)
+                << QPointF(cx - bw / 2.0, cy)
+                << QPointF(cx + bw / 2.0, cy);
             p.setBrush(s.color.isValid() ? s.color : QColor(255, 100, 100));
             p.drawPolygon(tri);
         }
@@ -1155,7 +1173,7 @@ void KLineWidget::setToolMode(ToolMode m)
     m_draggingEndpoint = 0;
     // set cursor according to mode
     if (m_toolMode == Tool_None) setCursor(Qt::ArrowCursor);
-    else if (m_toolMode == Tool_FixedDot || m_toolMode == Tool_FixedTriangle)
+    else if (m_toolMode == Tool_Fixed)
         setCursor(Qt::PointingHandCursor);
     else setCursor(Qt::CrossCursor);
     update();
@@ -1990,38 +2008,18 @@ void KLineWidget::drawFixedShapes(QPainter &p)
         int tw = fm.horizontalAdvance(label) + 8;
         int th = fm.height() + 4;
 
-        if (s.type == Shape_FixedDot) {
-            double r = isSelected ? 6 : 4;
-            p.setBrush(sc);
+        if (s.type == Shape_Fixed) {
+            QColor fillColor = isSelected ? sc.lighter(170) : sc;
+            double r = isSelected ? 9 : 8;
+            p.setBrush(fillColor);
             p.setPen(Qt::NoPen);
             p.drawEllipse(center, r, r);
             QRectF bg(sx + r + 4, sy - th / 2, tw, th);
             p.setBrush(QColor(0, 0, 0, 160));
             p.setPen(Qt::NoPen);
             p.drawRoundedRect(bg, 3, 3);
-            p.setPen(pen);
+            p.setPen(isSelected ? QPen(sc.lighter(200), 2) : pen);
             p.drawText(bg, Qt::AlignCenter, label);
-        } else if (s.type == Shape_FixedTriangle) {
-            double sz = isSelected ? 8 : 6;
-            p.setBrush(sc);
-            p.setPen(Qt::NoPen);
-            QPolygonF tri;
-            tri << QPointF(sx, sy - sz)
-                << QPointF(sx - sz * 0.8, sy + sz * 0.6)
-                << QPointF(sx + sz * 0.8, sy + sz * 0.6);
-            p.drawPolygon(tri);
-            QRectF bg(sx + sz + 6, sy - th / 2, tw, th);
-            p.setBrush(QColor(0, 0, 0, 160));
-            p.setPen(Qt::NoPen);
-            p.drawRoundedRect(bg, 3, 3);
-            p.setPen(pen);
-            p.drawText(bg, Qt::AlignCenter, label);
-        }
-
-        if (isSelected) {
-            p.setPen(QPen(QColor(0, 255, 255), 1, Qt::DashLine));
-            p.setBrush(Qt::NoBrush);
-            p.drawEllipse(center, 14, 14);
         }
     }
 }

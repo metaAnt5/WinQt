@@ -37,9 +37,9 @@ public:
     // Drawing tools
     // Drawing tools (simplified)
     enum ToolMode { Tool_None = 0, Tool_Line, Tool_Trend, Tool_UpTriangle, Tool_DownTriangle,
-                    Tool_FixedDot, Tool_FixedTriangle };
+                    Tool_Fixed };
     enum ShapeType { Shape_Line = 0, Shape_Trend, Shape_UpTriangle, Shape_DownTriangle,
-                     Shape_FixedDot = 100, Shape_FixedTriangle };
+                     Shape_Fixed = 100 };
     // Shape attachment category
     enum ShapeAttachment { Attach_KLineBound = 0,  // K-line bound, moves with zoom/pan
                            Attach_Fixed };          // Fixed position, does not move
