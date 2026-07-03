@@ -1,4 +1,4 @@
-#include "klinewidget.h"
+﻿#include "klinewidget.h"
 #include "shapedialog.h"
 #include "chartconfig.h"
 #include <QPainter>
@@ -282,8 +282,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
         QPointF norm = screenToNorm(event->pos());
         Shape s;
         s.attachment = Attach_Fixed;
-        s.normX = norm.x();
-        s.normY = norm.y();
+        s.x1 = norm.x();
+        s.y1 = norm.y();
         s.type = Shape_Fixed;
         s.text = QStringLiteral("Note");
         s.color = QColor(255, 200, 100);
@@ -311,8 +311,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 if (s.attachment == Attach_Fixed) continue;
                 // convert data coordinates to screen coordinates
                 QPointF screenP1, screenP2;
-                dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
-                dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
+                dataCoordToScreen((int)s.x1, s.y1, screenP1);
+                dataCoordToScreen((int)s.x2, s.y2, screenP2);
 
                 // check endpoint proximity (higher priority)
                 double dist1 = qSqrt((screenP1.x() - pt.x()) * (screenP1.x() - pt.x()) +
@@ -378,7 +378,7 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             for (int fi = 0; fi < m_shapes.size(); ++fi) {
                 const Shape &fs = m_shapes[fi];
                 if (fs.attachment != Attach_Fixed) continue;
-                QPoint fsScreen = normToScreen(fs.normX, fs.normY);
+                QPoint fsScreen = normToScreen(fs.x1, fs.y1);
                 double d = QPointF(event->pos() - fsScreen).manhattanLength();
                 if (d < closestDist) { closestDist = d; closestIdx = fi; }
             }
@@ -425,8 +425,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 // Skip Fixed shapes (not draggable in drawing mode)
                 if (s.attachment == Attach_Fixed) continue;
                 QPointF screenP1, screenP2;
-                dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
-                dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
+                dataCoordToScreen(s.x1, s.y1, screenP1);
+                dataCoordToScreen(s.x2, s.y2, screenP2);
 
                 // check endpoint proximity
                 double dist1 = qSqrt((screenP1.x() - pt.x())*(screenP1.x() - pt.x()) + (screenP1.y() - pt.y())*(screenP1.y() - pt.y()));
@@ -471,8 +471,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             else if (ns.type == Shape_DownTriangle)  ns.color = QColor(255, 100, 100);
             else ns.color = Qt::white;
             // convert screen to data coordinates
-            screenToDataCoord(pt, ns.candleIdx1, ns.price1);
-            ns.candleIdx2 = ns.candleIdx1; ns.price2 = ns.price1;
+            screenToDataCoord(pt, ns.x1, ns.y1);
+            ns.x2 = ns.x1; ns.y2 = ns.y1;
 
             // For Line/Trend: wait for second click
             if (ns.type == Shape_Trend) {
@@ -490,8 +490,8 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
 
             if (ns.type == Shape_Line) {
                 // 水平线：单次点击立即创建水平线
-                ns.price2 = ns.price1;               // 水平，价格相同
-                ns.candleIdx2 = qMax(0, m_data.size() - 1); // 延伸到最右
+                ns.y2 = ns.y1;               // 水平，价格相同
+                ns.x2 = qMax(0, m_data.size() - 1); // 延伸到最右
                 int id = addShape(ns);
                 Q_UNUSED(id)
                 saveShapes();
@@ -529,14 +529,14 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
             // Fixed shapes: not draggable, just selected
             if (s.attachment == Attach_Fixed) return;
             if (m_draggingEndpoint == 1) {
-                screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
-                if (s.type == Shape_Line) s.price2 = s.price1; // 水平线锁定价格
+                screenToDataCoord(event->pos(), s.x1, s.y1);
+                if (s.type == Shape_Line) s.y2 = s.y1; // 水平线锁定价格
                 update();
                 return;
             }
             if (m_draggingEndpoint == 2) {
-                screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
-                if (s.type == Shape_Line) s.price1 = s.price2; // 水平线锁定价格
+                screenToDataCoord(event->pos(), s.x2, s.y2);
+                if (s.type == Shape_Line) s.y1 = s.y2; // 水平线锁定价格
                 update();
                 return;
             }
@@ -552,16 +552,16 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
                 int dIdx = int(delta.x() / tp + 0.5);
                 if (s.type == Shape_Line) {
                     // 水平线：只移动价格
-                    s.price1 += dPrice;
-                    s.price2 = s.price1;
+                    s.y1 += dPrice;
+                    s.y2 = s.y1;
                     // candleIdx2 保持延伸到最右
                     if (!m_data.isEmpty())
-                        s.candleIdx2 = qMax(s.candleIdx1, m_data.size() - 1);
+                        s.x2 = qMax(s.x1, double(m_data.size() - 1));
                 } else {
-                    s.candleIdx1 = qBound(0, s.candleIdx1 + dIdx, m_data.size() - 1);
-                    s.candleIdx2 = qBound(0, s.candleIdx2 + dIdx, m_data.size() - 1);
-                    s.price1 += dPrice;
-                    s.price2 += dPrice;
+                    s.x1 = qBound(0.0, s.x1 + dIdx, double(m_data.size() - 1));
+                    s.x2 = qBound(0.0, s.x2 + dIdx, double(m_data.size() - 1));
+                    s.y1 += dPrice;
+                    s.y2 += dPrice;
                 }
                 m_lastMousePos = event->pos();
                 update();
@@ -575,12 +575,12 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
         if (m_selectedShapeIndex >= 0) {
             Shape &s = m_shapes[m_selectedShapeIndex];
             if (m_draggingEndpoint == 1) {
-                screenToDataCoord(event->pos(), s.candleIdx1, s.price1);
+                screenToDataCoord(event->pos(), s.x1, s.y1);
                 update();
                 return;
             }
             if (m_draggingEndpoint == 2) {
-                screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
+                screenToDataCoord(event->pos(), s.x2, s.y2);
                 update();
                 return;
             }
@@ -592,16 +592,16 @@ void KLineWidget::mouseMoveEvent(QMouseEvent *event)
                 if (priceRange <= 0 || mr.height() <= 0 || tp <= 0) return;
                 double dPrice = -delta.y() * priceRange / mr.height();
                 int dIdx = int(delta.x() / tp + 0.5);
-                s.candleIdx1 = qBound(0, s.candleIdx1 + dIdx, m_data.size() - 1);
-                s.candleIdx2 = qBound(0, s.candleIdx2 + dIdx, m_data.size() - 1);
-                s.price1 += dPrice;
-                s.price2 += dPrice;
+                s.x1 = qBound(0.0, s.x1 + dIdx, double(m_data.size() - 1));
+                s.x2 = qBound(0.0, s.x2 + dIdx, double(m_data.size() - 1));
+                s.y1 += dPrice;
+                s.y2 += dPrice;
                 m_lastMousePos = event->pos();
                 update();
                 return;
             }
             if (m_drawing) {
-                screenToDataCoord(event->pos(), s.candleIdx2, s.price2);
+                screenToDataCoord(event->pos(), s.x2, s.y2);
                 update();
                 return;
             }
@@ -728,7 +728,7 @@ void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
         if (s.attachment == Attach_Fixed) {
             // Fixed shapes: check proximity in screen coordinates
-            QPoint screenPt = normToScreen(s.normX, s.normY);
+            QPoint screenPt = normToScreen(s.x1, s.y1);
             QPointF sf(screenPt);
             double d = qSqrt((sf.x() - pt.x()) * (sf.x() - pt.x()) +
                             (sf.y() - pt.y()) * (sf.y() - pt.y()));
@@ -738,8 +738,8 @@ void KLineWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
         // KLineBound shapes: convert data coordinates to screen coordinates
         QPointF screenP1, screenP2;
-        dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
-        dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
+        dataCoordToScreen(s.x1, s.y1, screenP1);
+        dataCoordToScreen(s.x2, s.y2, screenP2);
 
         // check endpoint proximity
         double dist1 = qSqrt((screenP1.x() - pt.x()) * (screenP1.x() - pt.x()) +
@@ -939,8 +939,8 @@ void KLineWidget::paintEvent(QPaintEvent *event)
         if (s.attachment == Attach_Fixed) continue;
         // convert data coords to screen coords for drawing
         QPointF screenP1, screenP2;
-        dataCoordToScreen(s.candleIdx1, s.price1, screenP1);
-        dataCoordToScreen(s.candleIdx2, s.price2, screenP2);
+        dataCoordToScreen(s.x1, s.y1, screenP1);
+        dataCoordToScreen(s.x2, s.y2, screenP2);
 
         QPen sp((i == m_selectedShapeIndex) ? Qt::yellow : s.color.isValid() ? s.color : Qt::white);
         sp.setWidth(2);
@@ -1020,7 +1020,7 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             double bw = candleBodyWidth();
             if (bw < 2.0) bw = 8.0 * m_scale;
             double h = bw * 1.2;
-            double cx = candleCenterXForIndex(s.candleIdx1);
+            double cx = candleCenterXForIndex(s.x1);
             double cy = (screenP1.y() + screenP2.y()) / 2.0;
             QPolygonF tri;
             tri << QPointF(cx, cy - h)
@@ -1033,7 +1033,7 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             double bw = candleBodyWidth();
             if (bw < 2.0) bw = 8.0 * m_scale;
             double h = bw * 1.2;
-            double cx = candleCenterXForIndex(s.candleIdx1);
+            double cx = candleCenterXForIndex(s.x1);
             double cy = (screenP1.y() + screenP2.y()) / 2.0;
             QPolygonF tri;
             tri << QPointF(cx, cy + h)
@@ -1343,7 +1343,7 @@ void KLineWidget::editShapeProperties(int index)
 }
 
 // helper: convert screen coord to data coord (candle index & price)
-void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, double &price)
+void KLineWidget::screenToDataCoord(const QPointF &screenPt, double &candleIdx, double &price)
 {
     // 没数据时返回默认值，防止 qBound 崩
     if (m_data.isEmpty()) {
@@ -1359,7 +1359,7 @@ void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, dou
         double relX = screenPt.x() - mr.left();
         int relIdx = int(relX / totalPer + 0.5);
         candleIdx = m_startIndex + relIdx;
-        candleIdx = qBound(0, candleIdx, m_data.size() - 1);
+        candleIdx = qBound(0.0, candleIdx, double(m_data.size() - 1));
     } else {
         candleIdx = m_startIndex;
     }
@@ -1376,7 +1376,7 @@ void KLineWidget::screenToDataCoord(const QPointF &screenPt, int &candleIdx, dou
 }
 
 // helper: convert data coord (candle index & price) to screen coord
-void KLineWidget::dataCoordToScreen(int candleIdx, double price, QPointF &screenPt)
+void KLineWidget::dataCoordToScreen(double candleIdx, double price, QPointF &screenPt)
 {
     QRect mr = mainChartRect();
     double tp = totalPer();
@@ -1731,6 +1731,33 @@ QPoint KLineWidget::normToScreen(double normX, double normY) const
     return QPoint(sx, sy);
 }
 
+void KLineWidget::dataToNorm(int candleIdx, double price, double &normX, double &normY) const
+{
+    if (m_data.isEmpty()) {
+        normX = 0.5;
+        normY = 0.5;
+        return;
+    }
+    QRect cr = mainChartRect();
+    double priceRange = m_maxPrice - m_minPrice;
+    if (cr.width() <= 0 || cr.height() <= 0 || priceRange <= 0) {
+        normX = 0.5;
+        normY = 0.5;
+        return;
+    }
+    // Convert candle index to X normalized coordinate
+    double tp = totalPer();
+    if (tp > 0) {
+        double relX = (candleIdx - m_startIndex) * tp + tp / 2.0;
+        normX = qBound(0.0, relX / cr.width(), 1.0);
+    } else {
+        normX = 0.5;
+    }
+    // Convert price to Y normalized coordinate
+    double ratio = (price - m_minPrice) / priceRange;
+    normY = qBound(0.0, 1.0 - ratio, 1.0); // screen Y is inverted
+}
+
 void KLineWidget::setConnectionStatus(bool connected)
 {
     m_connected = connected;
@@ -1834,12 +1861,15 @@ void KLineWidget::saveShapes()
         obj["name"] = s.name;
         obj["text"] = s.text;
         obj["color"] = s.color.isValid() ? s.color.name() : "#FFFFFF";
-        obj["candleIdx1"] = s.candleIdx1;
-        obj["price1"] = s.price1;
-        obj["candleIdx2"] = s.candleIdx2;
-        obj["price2"] = s.price2;
-        obj["normX"] = s.normX;
-        obj["normY"] = s.normY;
+        if (s.attachment == Attach_Fixed) {
+            obj["normX"] = s.x1;
+            obj["normY"] = s.y1;
+        } else {
+            obj["candleIdx1"] = static_cast<int>(s.x1);
+            obj["price1"] = s.y1;
+            obj["candleIdx2"] = static_cast<int>(s.x2);
+            obj["price2"] = s.y2;
+        }
         obj["ownerShapeId"] = s.ownerShapeId;
         obj["scriptName"] = s.scriptName;
         obj["scriptParams"] = s.scriptParams;
@@ -1888,12 +1918,17 @@ void KLineWidget::loadShapes()
         s.name = obj["name"].toString();
         s.text = obj["text"].toString();
         s.color = QColor(obj["color"].toString("#FFFFFF"));
-        s.candleIdx1 = obj["candleIdx1"].toInt();
-        s.price1 = obj["price1"].toDouble();
-        s.candleIdx2 = obj["candleIdx2"].toInt();
-        s.price2 = obj["price2"].toDouble();
-        s.normX = obj["normX"].toDouble(0.5);
-        s.normY = obj["normY"].toDouble(0.5);
+        if (s.attachment == Attach_Fixed) {
+            s.x1 = obj["normX"].toDouble(0.5);
+            s.y1 = obj["normY"].toDouble(0.5);
+            s.x2 = s.x1;  // Fixed shapes only use one point
+            s.y2 = s.y1;
+        } else {
+            s.x1 = obj["candleIdx1"].toDouble();
+            s.y1 = obj["price1"].toDouble();
+            s.x2 = obj["candleIdx2"].toDouble();
+            s.y2 = obj["price2"].toDouble();
+        }
         s.ownerShapeId = obj["ownerShapeId"].toInt(0);
         QString ts = obj["tradeTime"].toString();
         s.tradeTime = ts.isEmpty() ? QDateTime() : QDateTime::fromString(ts, Qt::ISODate);
@@ -1988,8 +2023,8 @@ void KLineWidget::drawFixedShapes(QPainter &p)
         const Shape &s = m_shapes[i];
         if (s.attachment != Attach_Fixed) continue;
 
-        int sx = cr.left() + int(s.normX * cr.width());
-        int sy = cr.top() + int(s.normY * cr.height());
+        int sx = cr.left() + int(s.x1 * cr.width());
+        int sy = cr.top() + int(s.y1 * cr.height());
         QPointF center(sx, sy);
 
         QColor sc = s.color.isValid() ? s.color : QColor(255, 200, 100);

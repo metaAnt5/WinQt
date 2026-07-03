@@ -1,4 +1,4 @@
-#include "luascriptengine.h"
+﻿#include "luascriptengine.h"
 #include "klinewidget.h"
 #include "indicatorcalc.h"
 #include "apppaths.h"
@@ -327,10 +327,10 @@ static int lua_core_shape_add(lua_State *L)
 
     KLineWidget::Shape s;
     s.type = st;
-    s.candleIdx1 = candleIdx1;
-    s.price1 = price1;
-    s.candleIdx2 = candleIdx2;
-    s.price2 = price2;
+    s.x1 = candleIdx1;
+    s.y1 = price1;
+    s.x2 = candleIdx2;
+    s.y2 = price2;
     s.name = QString::fromUtf8(name);
     s.color = QColor(Qt::white);
     s.fromScript = true; // 脚本创建的 shape 不保存到磁盘
@@ -375,17 +375,17 @@ static int lua_core_get_shape_price(lua_State *L)
         if (s.scriptName == sn || s.scriptName == sn + ".lua") {
             // Trend 线 + 提供了 K 线索引：两点之间线性插值
             if (s.type == KLineWidget::Shape_Trend && candleIdx >= 0) {
-                int dx = s.candleIdx2 - s.candleIdx1;
+                int dx = s.x2 - s.x1;
                 if (dx == 0) {
-                    lua_pushnumber(L, s.price1);
+                    lua_pushnumber(L, s.y1);
                 } else {
-                    double t = double(candleIdx - s.candleIdx1) / double(dx);
-                    double price = s.price1 + (s.price2 - s.price1) * t;
+                    double t = double(candleIdx - s.x1) / double(dx);
+                    double price = s.y1 + (s.y2 - s.y1) * t;
                     lua_pushnumber(L, price);
                 }
             } else {
                 // 水平线（Line）和其他类型：返回 price1 固定值
-                lua_pushnumber(L, s.price1);
+                lua_pushnumber(L, s.y1);
             }
             return 1;
         }
@@ -423,20 +423,20 @@ static int lua_core_get_line_price(lua_State *L)
 
         // Trend 线：两点之间线性插值
         if (s.type == KLineWidget::Shape_Trend) {
-            int dx = s.candleIdx2 - s.candleIdx1;
+            int dx = s.x2 - s.x1;
             if (dx == 0) {
                 // 同一点，直接返回 price1
-                lua_pushnumber(L, s.price1);
+                lua_pushnumber(L, s.y1);
             } else {
-                double t = double(candleIdx - s.candleIdx1) / double(dx);
-                double price = s.price1 + (s.price2 - s.price1) * t;
+                double t = double(candleIdx - s.x1) / double(dx);
+                double price = s.y1 + (s.y2 - s.y1) * t;
                 lua_pushnumber(L, price);
             }
             return 1;
         }
 
         // Line（水平线）和其他：返回固定价格 price1
-        lua_pushnumber(L, s.price1);
+        lua_pushnumber(L, s.y1);
         return 1;
     }
 
@@ -474,8 +474,8 @@ static int lua_core_shape_add_fixed(lua_State *L)
     KLineWidget::Shape s;
     s.type = KLineWidget::Shape_Fixed;
     s.attachment = KLineWidget::Attach_Fixed;
-    s.normX = qBound(0.0, normX, 1.0);
-    s.normY = qBound(0.0, normY, 1.0);
+    s.x1 = qBound(0.0, normX, 1.0);
+    s.y1 = qBound(0.0, normY, 1.0);
     s.text = QString::fromUtf8(text);
     s.name = QString::fromUtf8(name);
     s.color = QColor(255, 200, 100);
@@ -487,6 +487,32 @@ static int lua_core_shape_add_fixed(lua_State *L)
     }
     int newId = kw->addShape(s);
     lua_pushinteger(L, newId);
+    return 1;
+}
+
+// core.shape_add_child(type, candleIndex, price, text) -> int (child shape id)
+// Creates a child Fixed shape at the given data coordinate (candle index + price)
+// Converts data coordinates to normalized coordinates before creating the child shape
+static int lua_core_shape_add_child(lua_State *L)
+{
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    KLineWidget *kw = engine ? engine->klineWidget() : nullptr;
+    if (!kw) { lua_pushinteger(L, -1); return 1; }
+
+    const char *typeStr = luaL_checkstring(L, 1);
+    int candleIndex = (int)luaL_checkinteger(L, 2);
+    double price = luaL_checknumber(L, 3);
+    const char *text = luaL_optstring(L, 4, "");
+
+    int parentId = engine->currentScriptParentShapeId();
+    if (parentId <= 0) { lua_pushinteger(L, -1); return 1; }
+
+    // Convert data coordinates (candle index, price) to normalized coordinates (0..1)
+    double normX = 0.5, normY = 0.5;
+    kw->dataToNorm(candleIndex, price, normX, normY);
+
+    int childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr), normX, normY, QString::fromUtf8(text));
+    lua_pushinteger(L, childId);
     return 1;
 }
 
@@ -632,6 +658,7 @@ void LuaScriptEngine::registerCoreAPI()
         {"child_add", lua_core_child_add},
         {"child_remove", lua_core_child_remove},
         {"child_select", lua_core_child_select},
+        {"shape_add_child", lua_core_shape_add_child},
         {nullptr, nullptr}
     };
 
@@ -826,12 +853,40 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
         // 设置当前脚本上下文（供 core.get_shape_price 等 API 使用）
         m_currentScriptName = scriptName;
 
+        // ── 查找当前脚本对应的父 shape（子 shape 将挂在它下面） ──
+        m_currentParentShapeId = 0;
+        {
+            KLineWidget *kw = resolveKLineWidget();
+            if (kw) {
+                const auto &shapes = kw->shapes();
+                for (const auto &s : shapes) {
+                    if (s.scriptName == scriptName || s.scriptName == scriptName + ".lua") {
+                        m_currentParentShapeId = s.id;
+                        break;
+                    }
+                }
+            }
+            if (m_currentParentShapeId == 0) {
+                QString key = symbol + "|" + QString::number(timeframe);
+                auto it = m_shapesDiskCache.find(key);
+                if (it != m_shapesDiskCache.end()) {
+                    for (const auto &sp : it.value()) {
+                        if (sp->scriptName == scriptName || sp->scriptName == scriptName + ".lua") {
+                            m_currentParentShapeId = sp->id;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
         // 检查对应的回调函数
         const char *funcName = isNewBar ? "on_bar_new" : "on_bar_update";
         lua_getglobal(L, funcName);
         if (lua_type(L, -1) != LUA_TFUNCTION) {
             lua_pop(L, 1);
             m_currentScriptName.clear();
+            m_currentParentShapeId = 0;
             continue;
         }
 
@@ -857,8 +912,9 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
             emit scriptError(scriptName, err);
         }
 
-        // 清理当前脚本名
+        // 清理当前脚本名和父 shape id
         m_currentScriptName.clear();
+        m_currentParentShapeId = 0;
     }
 
     // 清理事件上下文
@@ -934,12 +990,15 @@ void LuaScriptEngine::reloadShapesForSymbol(const QString &symbol, int timeframe
         sp->name = obj["name"].toString();
         sp->text = obj["text"].toString();
         sp->color = QColor(obj["color"].toString("#FFFFFF"));
-        sp->candleIdx1 = obj["candleIdx1"].toInt();
-        sp->price1 = obj["price1"].toDouble();
-        sp->candleIdx2 = obj["candleIdx2"].toInt();
-        sp->price2 = obj["price2"].toDouble();
-        sp->normX = obj["normX"].toDouble(0.5);
-        sp->normY = obj["normY"].toDouble(0.5);
+        if (sp->attachment == KLineWidget::Attach_Fixed) {
+            sp->x1 = obj["normX"].toDouble(0.5);
+            sp->y1 = obj["normY"].toDouble(0.5);
+        } else {
+            sp->x1 = obj["candleIdx1"].toDouble();
+            sp->y1 = obj["price1"].toDouble();
+            sp->x2 = obj["candleIdx2"].toDouble();
+            sp->y2 = obj["price2"].toDouble();
+        }
         sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
         sp->scriptName = obj["scriptName"].toString();
         sp->scriptParams = obj["scriptParams"].toString();
@@ -985,8 +1044,8 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
     KLineWidget::Shape s;
     s.attachment = KLineWidget::Attach_Fixed;
     s.ownerShapeId = parentShapeId;
-    s.normX = normX;
-    s.normY = normY;
+    s.x1 = normX;
+    s.y1 = normY;
     s.text = text;
     s.color = QColor(255, 200, 100);
     s.fromScript = true; // 脚本创建的子 shape 不保存到磁盘
@@ -1150,12 +1209,15 @@ void LuaScriptEngine::loadShapesFromDisk()
             sp->name = obj["name"].toString();
             sp->text = obj["text"].toString();
             sp->color = QColor(obj["color"].toString("#FFFFFF"));
-            sp->candleIdx1 = obj["candleIdx1"].toInt();
-            sp->price1 = obj["price1"].toDouble();
-            sp->candleIdx2 = obj["candleIdx2"].toInt();
-            sp->price2 = obj["price2"].toDouble();
-            sp->normX = obj["normX"].toDouble(0.5);
-            sp->normY = obj["normY"].toDouble(0.5);
+            if (sp->attachment == KLineWidget::Attach_Fixed) {
+                sp->x1 = obj["normX"].toDouble(0.5);
+                sp->y1 = obj["normY"].toDouble(0.5);
+            } else {
+                sp->x1 = obj["candleIdx1"].toDouble();
+                sp->y1 = obj["price1"].toDouble();
+                sp->x2 = obj["candleIdx2"].toDouble();
+                sp->y2 = obj["price2"].toDouble();
+            }
             sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
             sp->scriptName = obj["scriptName"].toString();
             sp->scriptParams = obj["scriptParams"].toString();

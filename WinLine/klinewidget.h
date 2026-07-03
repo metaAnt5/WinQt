@@ -52,14 +52,11 @@ public:
         int id;         // unique identifier
         // attachment category
         ShapeAttachment attachment = Attach_KLineBound;
-        // data coordinates: stick to K-line when zooming/panning (for KLineBound)
-        int candleIdx1; // candle index for p1
-        double price1;  // price for p1
-        int candleIdx2; // candle index for p2
-        double price2;  // price for p2
-        // normalized coordinates 0..1 relative to chart area (for Fixed)
-        double normX = 0.5;
-        double normY = 0.5;
+        // Unified coordinates:
+        //   Attach_KLineBound: (x, y) = (candleIndex, price)
+        //   Attach_Fixed:      (x, y) = (normX, normY) in 0..1
+        double x1 = 0.0, y1 = 0.0;  // point 1
+        double x2 = 0.0, y2 = 0.0;  // point 2
         // script ownership: 0 = user-created, >0 = child of shape with this id
         int ownerShapeId = 0;
         // trade-specific fields
@@ -86,8 +83,8 @@ public:
     void showLoading(const QString &msg = QStringLiteral("Loading..."));
     void hideLoading();
     void editShapeProperties(int index);
-    void screenToDataCoord(const QPointF &screenPt, int &candleIdx, double &price);
-    void dataCoordToScreen(int candleIdx, double price, QPointF &screenPt);
+    void screenToDataCoord(const QPointF &screenPt, double &candleIdx, double &price);
+    void dataCoordToScreen(double candleIdx, double price, QPointF &screenPt);
     double pointToLineDist(const QPointF &p, const QPointF &a, const QPointF &b);
     double pointToRayDist(const QPointF &p, const QPointF &a, const QPointF &b);
 
@@ -102,6 +99,8 @@ public:
     QPointF screenToNorm(const QPoint &screenPt) const;
     QPoint normToScreen(double normX, double normY) const;
     void drawFixedShapes(QPainter &p);
+    // Convert data coordinate (candle index, price) to normalized coordinate (0..1)
+    void dataToNorm(int candleIdx, double price, double &normX, double &normY) const;
 
     // Save/Load shapes
     QString shapesFilePath() const;

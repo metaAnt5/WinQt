@@ -525,8 +525,8 @@ int main(int argc, char *argv[])
         QString infoText;
         infoText += QStringLiteral("类型: %1\n").arg(target.type);
         infoText += QStringLiteral("坐标: (%1, %2) → (%3, %4)")
-            .arg(target.candleIdx1).arg(target.price1, 0, 'f', 2)
-            .arg(target.candleIdx2).arg(target.price2, 0, 'f', 2);
+            .arg(target.x1).arg(target.y1, 0, 'f', 2)
+            .arg(target.x2).arg(target.y2, 0, 'f', 2);
         if (target.tradePrice != 0.0)
             infoText += QStringLiteral("\n成交价: %1").arg(target.tradePrice, 0, 'f', 2);
         if (target.profit != 0.0)
