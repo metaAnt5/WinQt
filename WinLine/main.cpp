@@ -255,13 +255,16 @@ int main(int argc, char *argv[])
 
         // 加载完成或失败 -> 隐藏 Loading，显示"暂无数据"（如果数据为空）
         // 同时加载 shapes 关联的脚本（先清空旧的脚本绑定，再根据新 shapes 加载）
+        // 并回放历史 K 线，使脚本有机会扫描数据创建子 shape
         QObject::connect(loader, &DataLoader::loadFinished, klineWidget,
-            [klineWidget, luaEngine](const QString &symbol, int tf, bool success) {
+            [klineWidget, luaEngine, logText](const QString &symbol, int tf, bool success) {
             Q_UNUSED(success)
             klineWidget->hideLoading();
 
             // 先卸载该品种/周期下已绑定的所有旧脚本
             luaEngine->unloadByBinding(symbol, tf);
+
+            bool scriptLoaded = false;
 
             // 遍历 shapes（先从当前 KLineWidget，再从引擎磁盘缓存），加载关联的脚本
             auto shapes = klineWidget->shapes();
@@ -284,6 +287,18 @@ int main(int argc, char *argv[])
                     binding.symbol = symbol;
                     binding.timeframe = tf;
                     luaEngine->loadScript(scriptFile, shape.scriptParams, binding);
+                    scriptLoaded = true;
+                }
+            }
+
+            // ★ 回放历史 K 线：使已加载的脚本能扫描历史数据并创建子 shape
+            if (scriptLoaded) {
+                const auto &allData = klineWidget->allData();
+                if (!allData.isEmpty()) {
+                    logText->append(QStringLiteral("[Lua] 开始回放 %1 条历史 K 线...").arg(allData.size()));
+                    luaEngine->replayBars(symbol, tf, allData);
+                    logText->append(QStringLiteral("[Lua] 历史 K 线回放完成"));
+                    klineWidget->update();  // 刷新界面显示脚本创建的子 shape
                 }
             }
         });
@@ -455,7 +470,7 @@ int main(int argc, char *argv[])
     // 双击 shape -> 弹出完整属性对话框（含文本编辑、脚本配置、注释显示）
     // ================================================================
     QObject::connect(k, &KLineWidget::shapeDoubleClicked, k,
-        [k, luaEngine](int index) {
+        [k, luaEngine, logText](int index) {
         if (index < 0 || index >= k->shapes().size()) return;
         auto &shapes = const_cast<QVector<KLineWidget::Shape>&>(k->shapes());
         auto &s = shapes[index];
@@ -683,6 +698,16 @@ int main(int argc, char *argv[])
                 binding.symbol = k->symbol();
                 binding.timeframe = k->baseMinutes();
                 luaEngine->loadScript(scriptFile, newParams, binding);
+
+                // ★ 回放历史 K 线：遍历所有已加载的 K 线逐根调用脚本
+                //    使脚本有机会扫描历史数据并创建子 shape（如金叉/死叉标记）
+                const auto &allData = k->allData();
+                if (!allData.isEmpty()) {
+                    logText->append(QStringLiteral("[Lua] 开始回放 %1 条历史 K 线...").arg(allData.size()));
+                    luaEngine->replayBars(k->symbol(), k->baseMinutes(), allData);
+                    logText->append(QStringLiteral("[Lua] 历史 K 线回放完成"));
+                    k->update();  // 刷新界面显示脚本创建的子 shape
+                }
             }
             k->update();
         }

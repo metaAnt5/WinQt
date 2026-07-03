@@ -1,5 +1,4 @@
-f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\shape.obj
-f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\shapedialog.obj
+f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\luascriptengine.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\clickfilter.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\apppaths.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\simreader.obj
@@ -15,16 +14,16 @@ f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\macdwidget.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\volumewidget.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\indicatorwidget.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\klinewidget.obj
+f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\chartgroup.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\welcomewidget.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\mainwindow.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\main.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\mocs_compilation_release.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\chartconfig.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\kbarrpcservice.obj
+f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\shapedialog.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\indicatorcalc.obj
 f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\settingsdialog.obj
-f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\luascriptengine.obj
-f:\stock\winlineqt\winqt\winline\build2\winline.dir\release\chartgroup.obj
 f:\stock\winlineqt\winqt\winline\build2\winline_autogen\autouic_release.stamp
 f:\stock\winlineqt\winqt\winline\build2\cmakefiles\generate.stamp
 f:\stock\winlineqt\winqt\winline\build2\release\winline.exe

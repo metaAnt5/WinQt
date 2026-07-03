@@ -1,0 +1,36 @@
+﻿閫傜敤浜?.NET Framework MSBuild 鐗堟湰 17.10.4+10fbfbf2e
+
+  Automatic MOC and UIC for target WinLine
+  welcomewidget.cpp
+  klinewidget.cpp
+F:\stock\WinLineQt\WinQt\WinLine\klinewidget.cpp(559,32): error C2672: 鈥渜Max鈥? 鏈壘鍒板尮閰嶇殑閲嶈浇鍑芥暟 [F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\klinewidget.cpp(1362,21): error C2672: 鈥渜Bound鈥? 鏈壘鍒板尮閰嶇殑閲嶈浇鍑芥暟 [F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+  marketsconfig.cpp
+  apppaths.cpp
+  clickfilter.cpp
+  luascriptengine.cpp
+  Please define _WIN32_WINNT or _WIN32_WINDOWS appropriately. For example:
+  - add -D_WIN32_WINNT=0x0601 to the compiler command line; or
+  - add _WIN32_WINNT=0x0601 to your project's Preprocessor Definitions.
+  Assuming _WIN32_WINNT=0x0601 (i.e. Windows 7 target).
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(993,13): error C2039: "candleIdx1": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(994,13): error C2039: "price1": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(995,13): error C2039: "candleIdx2": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(996,13): error C2039: "price2": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(997,13): error C2039: "normX": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(998,13): error C2039: "normY": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(1209,17): error C2039: "candleIdx1": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(1210,17): error C2039: "price1": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(1211,17): error C2039: "candleIdx2": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(1212,17): error C2039: "price2": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(1213,17): error C2039: "normX": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp(1214,17): error C2039: "normY": 涓嶆槸 "KLineWidget::Shape" 鐨勬垚鍛?[F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.vcxproj]
+  settingsdialog.cpp
+  shapedialog.cpp
+  KBarRpcService.cpp
+  Please define _WIN32_WINNT or _WIN32_WINDOWS appropriately. For example:
+  - add -D_WIN32_WINNT=0x0601 to the compiler command line; or
+  - add _WIN32_WINNT=0x0601 to your project's Preprocessor Definitions.
+  Assuming _WIN32_WINNT=0x0601 (i.e. Windows 7 target).
+  chartconfig.cpp
+  姝ｅ湪鐢熸垚浠ｇ爜...

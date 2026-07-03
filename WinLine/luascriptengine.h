@@ -56,6 +56,12 @@ public:
     // ── K 线事件触发 ──
     void onBarEvent(const QString &symbol, int timeframe,
                     const Candle &candle, bool isNewBar);
+    void onBarEvent(const QString &symbol, int timeframe,
+                    const Candle &candle, bool isNewBar, int candleIndex);
+
+    // ── 回放历史 K 线（挂上脚本后遍历所有历史 K 线调用脚本） ──
+    void replayBars(const QString &symbol, int timeframe,
+                    const QVector<Candle> &data);
 
     QString lastError() const { return m_lastError; }
 
@@ -88,8 +94,11 @@ public:
     QList<QPair<QString,int>> allLoadedShapeSymbols() const;
 
     // ---- Fixed shape child management ----
-    // 为指定父 shape 创建子 shape（Fixed 类型）
-    int addChildShape(int parentShapeId, const QString &type, double normX, double normY, const QString &text);
+    // 为指定父 shape 创建子 shape
+    // klineBound=false: Attach_Fixed, 使用归一化坐标 (normX, normY)
+    // klineBound=true:  Attach_KLineBound, 使用数据坐标 (normX=candleIndex, normY=price)
+    int addChildShape(int parentShapeId, const QString &type, double x, double y, const QString &text,
+                      bool klineBound = false);
     // 删除子 shape
     bool removeChildShape(int childShapeId);
     // 获取某父 shape 的所有子 shape id 列表

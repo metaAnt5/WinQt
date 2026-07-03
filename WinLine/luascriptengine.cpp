@@ -491,8 +491,9 @@ static int lua_core_shape_add_fixed(lua_State *L)
 }
 
 // core.shape_add_child(type, candleIndex, price, text) -> int (child shape id)
-// Creates a child Fixed shape at the given data coordinate (candle index + price)
-// Converts data coordinates to normalized coordinates before creating the child shape
+// Creates a child shape at the given data coordinate (candle index + price)
+// TriangleUp/TriangleDown → Attach_KLineBound, 随 K 线移动
+// 其他 → Attach_Fixed, 屏幕位置固定
 static int lua_core_shape_add_child(lua_State *L)
 {
     LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
@@ -507,11 +508,24 @@ static int lua_core_shape_add_child(lua_State *L)
     int parentId = engine->currentScriptParentShapeId();
     if (parentId <= 0) { lua_pushinteger(L, -1); return 1; }
 
-    // Convert data coordinates (candle index, price) to normalized coordinates (0..1)
-    double normX = 0.5, normY = 0.5;
-    kw->dataToNorm(candleIndex, price, normX, normY);
+    // 判断类型：TriangleUp/TriangleDown → 数据坐标，随 K 线移动
+    bool isTriangle = (strcmp(typeStr, "TriangleUp") == 0 || strcmp(typeStr, "TriangleDown") == 0);
 
-    int childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr), normX, normY, QString::fromUtf8(text));
+    int childId;
+    if (isTriangle) {
+        // 直接创建 Attach_KLineBound 的子 shape，数据坐标格式 (candleIndex, price)
+        childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr),
+                                         (double)candleIndex, price, QString::fromUtf8(text),
+                                         true);  // klineBound=true
+    } else {
+        // Fixed 类型：转换数据坐标为归一化坐标 (0..1)
+        double normX = 0.5, normY = 0.5;
+        kw->dataToNorm(candleIndex, price, normX, normY);
+        childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr),
+                                         normX, normY, QString::fromUtf8(text),
+                                         false);  // klineBound=false
+    }
+
     lua_pushinteger(L, childId);
     return 1;
 }
@@ -590,9 +604,10 @@ static KLineWidget* getKLineWidget(lua_State *L)
 LuaScriptEngine::LuaScriptEngine(QObject *parent)
     : QObject(parent), m_state(nullptr)
 {
-    // 连接跨线程信号：barEventRequested 自动在主线程调用 onBarEvent
+    // 连接跨线程信号：barEventRequested 自动在主线程调用 onBarEvent（4参数版本）
+    using OnBarEvent4 = void(LuaScriptEngine::*)(const QString &, int, const Candle &, bool);
     QObject::connect(this, &LuaScriptEngine::barEventRequested,
-                     this, &LuaScriptEngine::onBarEvent,
+                     this, static_cast<OnBarEvent4>(&LuaScriptEngine::onBarEvent),
                      Qt::QueuedConnection);
 }
 
@@ -812,6 +827,12 @@ void LuaScriptEngine::requestBarEvent(const QString &symbol, int timeframe,
 void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
                                   const Candle &candle, bool isNewBar)
 {
+    onBarEvent(symbol, timeframe, candle, isNewBar, 0);
+}
+
+void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
+                                  const Candle &candle, bool isNewBar, int candleIndex)
+{
     QMutexLocker lock(&m_mutex);
 
     lua_State *L = (lua_State*)m_state;
@@ -890,8 +911,8 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
             continue;
         }
 
-        // 构建 candle table
-        lua_createtable(L, 0, 6);
+        // 构建 candle table（带上 index 字段，供脚本根据 K 线位置画子 shape）
+        lua_createtable(L, 0, 7);
         lua_pushstring(L, "symbol"); lua_pushstring(L, symbol.toUtf8().constData()); lua_settable(L, -3);
         lua_pushstring(L, "timeframe"); lua_pushinteger(L, timeframe); lua_settable(L, -3);
         lua_pushstring(L, "time"); lua_pushstring(L, candle.date.toString(Qt::ISODate).toUtf8().constData()); lua_settable(L, -3);
@@ -900,6 +921,7 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
         lua_pushstring(L, "low"); lua_pushnumber(L, candle.low); lua_settable(L, -3);
         lua_pushstring(L, "close"); lua_pushnumber(L, candle.close); lua_settable(L, -3);
         lua_pushstring(L, "volume"); lua_pushnumber(L, candle.volume); lua_settable(L, -3);
+        lua_pushstring(L, "index"); lua_pushinteger(L, candleIndex); lua_settable(L, -3);
 
         // 第二个参数：脚本名称（用于 core.get_shape_price）
         lua_pushstring(L, scriptName.toUtf8().constData());
@@ -920,6 +942,31 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
     // 清理事件上下文
     m_currentSymbol.clear();
     m_currentTimeframe = 0;
+}
+
+// ── 回放历史 K 线（挂上脚本后遍历所有历史 K 线调用脚本，使其有机会创建子 shape） ──
+void LuaScriptEngine::replayBars(const QString &symbol, int timeframe,
+                                  const QVector<Candle> &data)
+{
+    if (data.isEmpty()) return;
+
+    // 设置为回放模式，抑制 alert/send_feishu
+    bool oldReplay = m_isReplay;
+    m_isReplay = true;
+
+    qDebug() << "[Lua] replayBars:" << symbol << timeframe << "bars:" << data.size();
+
+    // 逐根 K 线调用 onBarEvent
+    // 第一根一定是新 K 线，后续每根与上一根时间不同也是新 K 线
+    for (int i = 0; i < data.size(); ++i) {
+        bool isNew = (i == 0) || (data[i].date != data[i-1].date);
+        onBarEvent(symbol, timeframe, data[i], isNew, i);
+    }
+
+    // 恢复回放模式
+    m_isReplay = oldReplay;
+
+    qDebug() << "[Lua] replayBars done:" << symbol << timeframe;
 }
 
 void LuaScriptEngine::registerKLineWidget(KLineWidget *kw)
@@ -1037,20 +1084,35 @@ QList<QPair<QString,int>> LuaScriptEngine::allLoadedShapeSymbols() const
 }
 
 int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
-                                     double normX, double normY, const QString &text)
+                                     double x, double y, const QString &text,
+                                     bool klineBound)
 {
     KLineWidget *kw = klineWidget();
     if (!kw) return -1;
     KLineWidget::Shape s;
-    s.attachment = KLineWidget::Attach_Fixed;
     s.ownerShapeId = parentShapeId;
-    s.x1 = normX;
-    s.y1 = normY;
     s.text = text;
     s.color = QColor(255, 200, 100);
     s.fromScript = true; // 脚本创建的子 shape 不保存到磁盘
-    // 所有 Fixed 类型统一为 Shape_Fixed（合并 Circle/Dot/Note/Label/Triangle）
-    s.type = KLineWidget::Shape_Fixed;
+
+    if (klineBound) {
+        // Attach_KLineBound: 数据坐标 (x=candleIndex, y=price)，跟随 K 线滚动
+        s.attachment = KLineWidget::Attach_KLineBound;
+        s.x1 = x;  // candleIndex
+        s.y1 = y;  // price
+        // 根据 type 设置三角形类型
+        if (type == "TriangleDown")
+            s.type = KLineWidget::Shape_DownTriangle;
+        else
+            s.type = KLineWidget::Shape_UpTriangle; // "TriangleUp" 或其他默认向上
+    } else {
+        // Attach_Fixed: 归一化坐标 (x=normX, y=normY)，屏幕固定
+        s.attachment = KLineWidget::Attach_Fixed;
+        s.x1 = x;  // normX
+        s.y1 = y;  // normY
+        s.type = KLineWidget::Shape_Fixed;
+    }
+
     return kw->addShape(s);
 }
 

@@ -1016,12 +1016,12 @@ void KLineWidget::paintEvent(QPaintEvent *event)
                 p.drawLine(screenP1, bestPt);
             }
         } else if (s.type == Shape_UpTriangle) {
-            // Draw up triangle with width = candle body width, centered on candleIdx1
+            // Draw up triangle with width = candle body width, centered on candleIdx1 at price y1
             double bw = candleBodyWidth();
             if (bw < 2.0) bw = 8.0 * m_scale;
             double h = bw * 1.2;
             double cx = candleCenterXForIndex(s.x1);
-            double cy = (screenP1.y() + screenP2.y()) / 2.0;
+            double cy = screenP1.y(); // price y1 对应的屏幕 Y
             QPolygonF tri;
             tri << QPointF(cx, cy - h)
                 << QPointF(cx - bw / 2.0, cy)
@@ -1029,12 +1029,12 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             p.setBrush(s.color.isValid() ? s.color : QColor(100, 255, 100));
             p.drawPolygon(tri);
         } else if (s.type == Shape_DownTriangle) {
-            // Draw down triangle with width = candle body width, centered on candleIdx1
+            // Draw down triangle with width = candle body width, centered on candleIdx1 at price y1
             double bw = candleBodyWidth();
             if (bw < 2.0) bw = 8.0 * m_scale;
             double h = bw * 1.2;
             double cx = candleCenterXForIndex(s.x1);
-            double cy = (screenP1.y() + screenP2.y()) / 2.0;
+            double cy = screenP1.y(); // price y1 对应的屏幕 Y
             QPolygonF tri;
             tri << QPointF(cx, cy + h)
                 << QPointF(cx - bw / 2.0, cy)

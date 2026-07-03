@@ -544,13 +544,9 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorcalc.h
 F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QTimer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
@@ -574,8 +570,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -607,9 +601,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -634,7 +625,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -679,7 +669,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -687,7 +676,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -701,9 +689,7 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -712,7 +698,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -729,17 +714,13 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qtwidgetsglobal.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/simengine.h
 F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -761,8 +742,6 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -794,9 +773,6 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -821,7 +797,6 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -865,7 +840,6 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -873,7 +847,6 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -887,9 +860,7 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -898,7 +869,6 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -916,16 +886,11 @@ F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
 F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -947,8 +912,6 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -980,9 +943,6 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -1007,7 +967,6 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -1051,7 +1010,6 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -1059,7 +1017,6 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -1073,9 +1030,7 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -1084,7 +1039,6 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -1101,20 +1055,15 @@ F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qtwidgetsglobal.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
 F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QHash
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMutex
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPair
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -1136,8 +1085,6 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -1171,9 +1118,6 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -1199,7 +1143,6 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -1244,7 +1187,6 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -1252,7 +1194,6 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -1266,9 +1207,7 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -1277,7 +1216,6 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -1295,7 +1233,7 @@ F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
+F:/stock/WinLineQt/WinQt/WinLine/chartgroup.h
 F:/stock/WinLineQt/WinQt/WinLine/settingsdialog.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
@@ -1490,12 +1428,9 @@ F:/stock/WinLineQt/WinQt/WinLine/settingsdialog.h
 F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -1517,8 +1452,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -1550,9 +1483,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -1577,7 +1507,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -1621,7 +1550,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -1629,7 +1557,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -1643,9 +1570,7 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -1654,7 +1579,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -1672,7 +1596,6 @@ F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/macdwidget.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
 F:/stock/WinLineQt/WinQt/WinLine/mainwindow.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -2150,12 +2073,8 @@ F:/stock/WinLineQt/WinQt/WinLine/simreader.h
 F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -2177,8 +2096,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -2210,9 +2127,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -2237,7 +2151,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -2281,7 +2194,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -2289,7 +2201,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -2303,9 +2214,7 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -2314,7 +2223,6 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -2334,18 +2242,14 @@ F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qtwidgetsglobal.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/simwindow.h
 F:/stock/WinLineQt/WinQt/WinLine/testdata.h
 F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mmc:Q_OBJECT
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h
@@ -2367,8 +2271,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h
@@ -2400,9 +2302,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h
@@ -2427,7 +2326,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h
@@ -2471,7 +2369,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h
@@ -2479,7 +2376,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h
@@ -2493,9 +2389,7 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h
@@ -2504,7 +2398,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h
- mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h
@@ -2521,7 +2414,6 @@ F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qtwidgetsglobal.h
  mdp:C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
- mdp:F:/stock/WinLineQt/WinQt/WinLine/shape.h
  mdp:F:/stock/WinLineQt/WinQt/WinLine/volumewidget.h
 F:/stock/WinLineQt/WinQt/WinLine/apppaths.cpp
 F:/stock/WinLineQt/WinQt/WinLine/csvloader.cpp
@@ -2533,6 +2425,7 @@ F:/stock/WinLineQt/WinQt/WinLine/simengine.cpp
 F:/stock/WinLineQt/WinQt/WinLine/indicatorwidget.cpp
 F:/stock/WinLineQt/WinQt/WinLine/klinewidget.cpp
 F:/stock/WinLineQt/WinQt/WinLine/luascriptengine.cpp
+F:/stock/WinLineQt/WinQt/WinLine/chartgroup.cpp
 F:/stock/WinLineQt/WinQt/WinLine/settingsdialog.cpp
 F:/stock/WinLineQt/WinQt/WinLine/macdwidget.cpp
 F:/stock/WinLineQt/WinQt/WinLine/shapedialog.cpp
