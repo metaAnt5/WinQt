@@ -2,7 +2,6 @@
 -- 收线在趋势线/水平线上方 → 飞书提醒（看涨）
 
 function on_init(params)
-    core.log("line_bullish initialized (收线看涨突破提醒)")
     return true
 end
 
@@ -51,6 +50,5 @@ function on_bar_new(candle, script_name)
                 symbol, tf, price, close_price, candle.time
             )
             core.send_feishu(msg)
-            core.log("line_bullish feishu sent: " .. msg)
         end
 end

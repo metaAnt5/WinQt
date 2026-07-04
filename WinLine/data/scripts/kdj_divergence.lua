@@ -4,7 +4,6 @@
 -- 底背离（K值跌但价格涨）→ 看涨
 
 function on_init(params)
-    core.log("kdj_divergence initialized (顶底背离检测)")
     return true
 end
 
@@ -68,19 +67,11 @@ function on_bar_new_real(candle, script_name)
 
     -- 顶背离：K 在涨（k_change > 0），价格在跌（close_change < -threshold）
     if k_change > 0 and close_change < -threshold then
-        core.log(string.format(
-            "顶背离: K %.2f→%.2f (+%.2f) 收盘 %.2f→%.2f (%.2f%%)",
-            start_k, end_k, k_change, start_close, end_close, close_change
-        ))
         return
     end
 
     -- 底背离：K 在跌（k_change < 0），价格在涨（close_change > threshold）
     if k_change < 0 and close_change > threshold then
-        core.log(string.format(
-            "底背离: K %.2f→%.2f (%.2f) 收盘 %.2f→%.2f (+%.2f%%)",
-            start_k, end_k, k_change, start_close, end_close, close_change
-        ))
         return
     end
 end

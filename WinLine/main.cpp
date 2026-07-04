@@ -53,76 +53,22 @@
 #include <QGroupBox>
 #include <QDateTime>
 
-// 日志写入文件（Release 版没有控制台窗口，WIN32_EXECUTABLE TRUE）
-// 使用 OutputDebugStringA 输出到 DebugView，同时写入日志文件
-#include <io.h>
-#include <fcntl.h>
-#include <fstream>
-
-static std::ofstream s_logFile;
-static bool s_logFileOpened = false;
-
-static void openLogFile()
-{
-    if (s_logFileOpened) return;
-    s_logFileOpened = true;
-    QString logPath = QCoreApplication::applicationDirPath() + "/WinLine_debug.log";
-    s_logFile.open(logPath.toStdString(), std::ios::out | std::ios::app);
-    if (s_logFile.is_open()) {
-        s_logFile << "=== WinLine Debug Log Started ===" << std::endl;
-        s_logFile.flush();
-    }
-}
-
-static void debugLog(const char *msg)
-{
-    qDebug() << "[DBG]" << msg;
-    openLogFile();
-    if (s_logFile.is_open()) {
-        s_logFile << "[DBG] " << msg << std::endl;
-        s_logFile.flush();
-    }
-    OutputDebugStringA("[DBG] ");
-    OutputDebugStringA(msg);
-    OutputDebugStringA("\n");
-}
-
-static void debugLog2(const char *tag, const QString &val)
-{
-    QString full = QString("[DBG] %1: %2").arg(tag).arg(val);
-    qDebug().noquote() << full;
-    openLogFile();
-    if (s_logFile.is_open()) {
-        s_logFile << full.toStdString() << std::endl;
-        s_logFile.flush();
-    }
-    OutputDebugStringA(full.toUtf8().constData());
-    OutputDebugStringA("\n");
-}
 
 int main(int argc, char *argv[])
 {
-    debugLog("main() started");
-
     QApplication a(argc, argv);
 
     // 注册 Candle 元类型，支持跨线程 QueuedConnection 信号传递
     qRegisterMetaType<Candle>("Candle");
-    debugLog("qRegisterMetaType done");
 
 #ifdef QT_DEBUG
     QMessageBox::information(nullptr, "调试提示", "当前为 Debug 构建，工程可以编译并进行调试。");
     // In debug builds, prefer the current working directory (project code dir) as the data root
     AppPaths::setDataRoot(QDir::currentPath());
-    debugLog("Debug build, AppPaths::setDataRoot set");
-#else
-    debugLog("Release build");
 #endif
 
     // create main window UI
-    debugLog("Creating MainWindow...");
     MainWindow mainWindow;
-    debugLog("MainWindow created");
 
     // 菜单栏：设置
     QAction *settingsAction = mainWindow.menuBar()->addAction("设置");
@@ -133,8 +79,6 @@ int main(int argc, char *argv[])
             dlg.saveToFile();
         }
     });
-
-    debugLog("Creating toolbar...");
     // toolbar (use QMainWindow's toolbar)
     QToolBar *toolbar = new QToolBar(&mainWindow);
     mainWindow.addToolBar(toolbar);
@@ -149,17 +93,13 @@ int main(int argc, char *argv[])
     QAction *ah4 = toolbar->addAction("H4"); ah4->setCheckable(true); periodGroup->addAction(ah4);
     QAction *ad = toolbar->addAction("Daily"); ad->setCheckable(true); periodGroup->addAction(ad);
     QAction *aw = toolbar->addAction("Weekly"); aw->setCheckable(true); periodGroup->addAction(aw);
-    debugLog("Creating widgets...");
     // ensure main chart and indicator widgets exist
     KLineWidget *k = new KLineWidget;
-    debugLog("KLineWidget created");
     IndicatorWidget *ind = new IndicatorWidget;
-    debugLog("IndicatorWidget created");
 
     // create stacked widget with Volume, KDJ, MACD and install ClickFilter to handle double-click switching
     QStackedWidget *stack = new QStackedWidget;
     VolumeWidget *volw = new VolumeWidget;
-    debugLog("VolumeWidget created");
     IndicatorWidget *kjw = ind; // reuse existing
     MacdWidget *macdw = new MacdWidget;
     stack->addWidget(volw);
@@ -188,29 +128,20 @@ int main(int argc, char *argv[])
     rightSplit->setStretchFactor(1, 1);
 
     // list on the left
-    debugLog("Creating tree widget...");
     QTreeWidget *tree = new QTreeWidget;
     tree->setHeaderHidden(true);
     MarketsConfig cfg;
     // resolve config directory using AppPaths so debug/run paths are unified
-    debugLog("Resolving config directory via AppPaths...");
     QString configDir = AppPaths::resolveDataDir("config");
-    debugLog2("configDir resolved to", configDir);
     QString cfgPath = QDir(configDir).filePath("markets.xml");
-    debugLog2("cfgPath", cfgPath);
-    debugLog("Loading markets.xml...");
     bool loaded = cfg.loadFromFile(cfgPath);
-    debugLog2("markets.xml loaded = ", loaded ? "true" : "false");
     if (!loaded) {
         // failed to load configuration -> show error and quit
-        debugLog("markets.xml loading FAILED, will show error dialog and exit");
         QMessageBox::critical(&mainWindow, QStringLiteral("配置加载失败"),
                               QStringLiteral("未能在 %1 找到或解析 markets.xml 。程序将退出。").arg(cfgPath));
         return 0;
     }
-    debugLog("Populating tree...");
     cfg.populateTree(tree);
-    debugLog("Tree populated");
 
     // ============================================================
     // Welcome widget (shown initially on the right side)
@@ -271,22 +202,15 @@ int main(int argc, char *argv[])
     // ================================================================
     // LuaScriptEngine 初始化
     // ================================================================
-    debugLog("STEP: Creating LuaScriptEngine...");
     LuaScriptEngine *luaEngine = new LuaScriptEngine(&mainWindow);
-    debugLog("STEP: LuaScriptEngine created, setting KLineWidget...");
     luaEngine->setKLineWidget(k);
-    debugLog("STEP: Initializing LuaScriptEngine...");
     bool luaInitOk = luaEngine->initialize();
-    debugLog2("STEP: initialize() returned", luaInitOk ? "true" : "false");
     if (!luaInitOk) {
         logText->append("LuaScriptEngine initialize failed: " + luaEngine->lastError());
-        debugLog2("LuaScriptEngine initialize failed", luaEngine->lastError());
     } else {
         logText->append("LuaScriptEngine initialized");
-        debugLog("LuaScriptEngine initialized OK");
     }
 
-    debugLog("STEP: Connecting script signals...");
     // 连接脚本日志/错误到日志输出
     QObject::connect(luaEngine, &LuaScriptEngine::scriptLog,
         logText, [logText](const QString &msg) {
@@ -297,12 +221,9 @@ int main(int argc, char *argv[])
         logText->append(QStringLiteral("[Lua Error] %1: %2").arg(scriptName, error));
     });
 
-    debugLog("STEP: registerKLineWidget...");
     // 注册主 KLineWidget 到引擎
     luaEngine->registerKLineWidget(k);
-    debugLog("STEP: registerKLineWidget done");
 
-    debugLog("STEP: Connecting candleUpdated signal...");
     // 连接 K 线更新信号到脚本引擎（通过 requestBarEvent 实现跨线程安全调度）
     QObject::connect(k, &KLineWidget::candleUpdated, k,
         [k, luaEngine](const Candle &candle, bool isNewBar) {
@@ -311,25 +232,17 @@ int main(int argc, char *argv[])
         if (sym.isEmpty() || tf <= 0) return;
         luaEngine->requestBarEvent(sym, tf, candle, isNewBar);
     });
-    debugLog("STEP: candleUpdated signal connected");
-
-    debugLog("STEP: Creating DataLoader...");
     // find KLineWidget and create DataLoader
     KLineWidget *klineWidget = k;  // 使用上面已创建的 KLineWidget
     DataLoader *loader = nullptr;
     if (klineWidget) {
-        debugLog("STEP: klineWidget is not null, creating DataLoader...");
         loader = new DataLoader(klineWidget, &mainWindow);
-        debugLog("STEP: DataLoader created, starting RPC client...");
         // 启动 RPC 客户端
         if (loader->startRpcClient()) {
             logText->append(QStringLiteral("KBarRPC client initialized, waiting for data request... (127.0.0.1:9888)"));
-            debugLog("KBarRPC client started successfully");
         } else {
             logText->append(QStringLiteral("KBarRPC client failed to start"));
-            debugLog("KBarRPC client FAILED to start");
         }
-        debugLog("STEP: RPC client start done");
 
         // ================================================================
         // 连接 DataLoader 信号，实现 Loading 覆盖层和推送数据更新

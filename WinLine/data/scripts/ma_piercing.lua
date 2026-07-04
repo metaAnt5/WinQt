@@ -4,7 +4,6 @@
 -- 看跌：K棒开盘>三线，收盘<三线，且MA5<MA10<MA20
 
 function on_init(params)
-    core.log("ma_piercing initialized (一阳穿三线/一阴破三线)")
     return true
 end
 
@@ -33,11 +32,6 @@ function on_bar_new(candle, script_name)
         return
     end
 
-    -- 均线排列
-    local ma5_0 = core.ma(5, 0)  -- 当前 MA5
-    local ma5_2 = core.ma(5, 2)  -- 前前一根 MA5（用于判断斜率方向）
-    local ma10_0 = core.ma(10, 0)
-
     -- 看涨突破（一阳穿三线）：
     --   ① 开盘 < MA5, MA10, MA20
     --   ② 收盘 > MA5, MA10, MA20
@@ -55,10 +49,6 @@ function on_bar_new(candle, script_name)
     if bullish_piercing then
         if b.index ~= last_signal_idx then
             last_signal_idx = b.index
-            core.log(string.format(
-                "一阳穿三线: O=%.2f C=%.2f MA5=%.2f MA10=%.2f MA20=%.2f",
-                o, c, ma5, ma10, ma20
-            ))
             core.shape_add_child("TriangleUp", b.index, l - 0.3)
         end
         return
@@ -81,10 +71,6 @@ function on_bar_new(candle, script_name)
     if bearish_piercing then
         if b.index ~= last_signal_idx then
             last_signal_idx = b.index
-            core.log(string.format(
-                "一阴破三线: O=%.2f C=%.2f MA5=%.2f MA10=%.2f MA20=%.2f",
-                o, c, ma5, ma10, ma20
-            ))
             core.shape_add_child("TriangleDown", b.index, h + 0.3)
         end
         return

@@ -14,7 +14,6 @@
 --   动作: 画 TriangleDown + 飞书提醒
 
 function on_init(params)
-    core.log("ma_trend_start initialized (价格穿过MA5/MA10趋势启动信号)")
     return true
 end
 
@@ -69,10 +68,6 @@ function on_bar_new(candle, script_name)
     if not_bullish_before and bullish_now then
         if prev.index ~= last_signal_idx then
             last_signal_idx = prev.index
-            core.log(string.format(
-                "多头趋势启动: close=%.2f > MA5=%.2f > MA10=%.2f [%s]",
-                close_0, ma5_0, ma10_0, candle.time
-            ))
 
             -- 画三角形（向上，画在最低点下方）
             core.shape_add_child("TriangleUp", 0, candle.low - 0.5)
@@ -87,7 +82,6 @@ function on_bar_new(candle, script_name)
                 symbol, tf, close_0, ma5_0, ma10_0, candle.time
             )
             core.send_feishu(msg)
-            core.log("ma_trend_start feishu sent (bullish): " .. symbol)
         end
         return
     end
@@ -104,10 +98,6 @@ function on_bar_new(candle, script_name)
     if not_bearish_before and bearish_now then
         if prev.index ~= last_signal_idx then
             last_signal_idx = prev.index
-            core.log(string.format(
-                "空头趋势启动: close=%.2f < MA5=%.2f < MA10=%.2f [%s]",
-                close_0, ma5_0, ma10_0, candle.time
-            ))
 
             -- 画三角形（向下，画在最高点上方）
             core.shape_add_child("TriangleDown", 0, candle.high + 0.5)
@@ -122,7 +112,6 @@ function on_bar_new(candle, script_name)
                 symbol, tf, close_0, ma5_0, ma10_0, candle.time
             )
             core.send_feishu(msg)
-            core.log("ma_trend_start feishu sent (bearish): " .. symbol)
         end
         return
     end

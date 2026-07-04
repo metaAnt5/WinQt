@@ -11,21 +11,14 @@
 --   scriptName : 当前脚本名称
 
 function on_init(params)
-    core.log("break_line 策略初始化完成, 参数: " .. params)
     return true
 end
 
 function on_bar_new(candle, scriptName)
     -- 获取关联的图形在当前 K 线位置的价格
     local linePrice = core.get_line_price(scriptName, candle.index)
-    core.log("DEBUG on_bar_new: scriptName=" .. tostring(scriptName) ..
-             " candle.index=" .. tostring(candle.index) ..
-             " linePrice=" .. tostring(linePrice) ..
-             " candle.low=" .. string.format("%.2f", candle.low) ..
-             " candle.high=" .. string.format("%.2f", candle.high))
 
     if linePrice == nil then
-        core.log("未找到关联的图形，请在图形属性中设置脚本名称: " .. scriptName)
         return
     end
 
@@ -44,32 +37,22 @@ function on_bar_new(candle, scriptName)
     if curLow > linePrice and prevHigh <= linePrice then
         core.alert("收线突破! " .. candle.symbol .. " 最低=" .. string.format("%.2f", curLow) ..
                    " 突破 " .. string.format("%.2f", linePrice))
-        local id = core.shape_add_child("TriangleUp", candle.index, candle.low)
-        core.log("突破信号: " .. candle.symbol .. " 最低=" .. string.format("%.2f", curLow) ..
-                 " 线=" .. string.format("%.2f", linePrice) .. " shape_id=" .. tostring(id))
+        core.shape_add_child("TriangleUp", candle.index, candle.low)
 
     -- 下穿：当前 K 线最高价在线下方，且上一根 K 线最低价在线下方或线上
     --      → 整根 K 线从上方完全越到线下方
     elseif curHigh < linePrice and prevLow >= linePrice then
         core.alert("收线跌破! " .. candle.symbol .. " 最高=" .. string.format("%.2f", curHigh) ..
                    " 跌破 " .. string.format("%.2f", linePrice))
-        local id = core.shape_add_child("TriangleDown", candle.index, candle.high)
-        core.log("跌破信号: " .. candle.symbol .. " 最高=" .. string.format("%.2f", curHigh) ..
-                 " 线=" .. string.format("%.2f", linePrice) .. " shape_id=" .. tostring(id))
+        core.shape_add_child("TriangleDown", candle.index, candle.high)
     end
 end
 
 -- 同根 K 线实时更新时调用
 function on_bar_update(candle, scriptName)
     local linePrice = core.get_line_price(scriptName, candle.index)
-    core.log("DEBUG on_bar_update: scriptName=" .. tostring(scriptName) ..
-             " candle.index=" .. tostring(candle.index) ..
-             " linePrice=" .. tostring(linePrice) ..
-             " candle.low=" .. string.format("%.2f", candle.low) ..
-             " candle.high=" .. string.format("%.2f", candle.high))
 
     if linePrice == nil then
-        core.log("未找到关联的图形，请在图形属性中设置脚本名称: " .. scriptName)
         return
     end
 
@@ -86,16 +69,12 @@ function on_bar_update(candle, scriptName)
     if curLow > linePrice and prevHigh <= linePrice then
         core.alert("收线突破! " .. candle.symbol .. " 最低=" .. string.format("%.2f", curLow) ..
                    " 突破 " .. string.format("%.2f", linePrice))
-        local id = core.shape_add_child("TriangleUp", candle.index, candle.low)
-        core.log("突破信号: " .. candle.symbol .. " 最低=" .. string.format("%.2f", curLow) ..
-                 " 线=" .. string.format("%.2f", linePrice) .. " shape_id=" .. tostring(id))
+        core.shape_add_child("TriangleUp", candle.index, candle.low)
 
     -- 下穿
     elseif curHigh < linePrice and prevLow >= linePrice then
         core.alert("收线跌破! " .. candle.symbol .. " 最高=" .. string.format("%.2f", curHigh) ..
                    " 跌破 " .. string.format("%.2f", linePrice))
-        local id = core.shape_add_child("TriangleDown", candle.index, candle.high)
-        core.log("跌破信号: " .. candle.symbol .. " 最高=" .. string.format("%.2f", curHigh) ..
-                 " 线=" .. string.format("%.2f", linePrice) .. " shape_id=" .. tostring(id))
+        core.shape_add_child("TriangleDown", candle.index, candle.high)
     end
 end

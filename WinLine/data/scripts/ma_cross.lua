@@ -3,7 +3,6 @@
 -- 金叉（K上穿D）→ TriangleUp；死叉（K下穿D）→ TriangleDown
 
 function on_init(params)
-    core.log("kdj_strategy initialized with params: " .. params)
     return true
 end
 

@@ -2,7 +2,6 @@
 -- 收线在趋势线/水平线下方 → 飞书提醒（看跌）
 
 function on_init(params)
-    core.log("line_bearish initialized (收线看跌跌破提醒)")
     return true
 end
 
@@ -51,6 +50,5 @@ function on_bar_new(candle, script_name)
                 symbol, tf, price, close_price, candle.time
             )
             core.send_feishu(msg)
-            core.log("line_bearish feishu sent: " .. msg)
         end
 end

@@ -4,7 +4,6 @@
 -- J<K<D 空头排列 → 下跌趋势开始
 
 function on_init(params)
-    core.log("kdj_trend_start initialized (KDJ三线排列信号)")
     return true
 end
 
@@ -33,10 +32,6 @@ function on_bar_new(candle, script_name)
     if bullish_now and not bullish_before then
         if last_signal.dir ~= "bullish" or last_signal.idx ~= 0 then
             last_signal = { dir = "bullish", idx = 0 }
-            core.log(string.format(
-                "多头排列形成: J=%.2f > K=%.2f > D=%.2f",
-                j0, k0, d0
-            ))
             core.shape_add_child("TriangleUp", 0, candle.close - 0.5)
         end
     end
@@ -45,10 +40,6 @@ function on_bar_new(candle, script_name)
     if bearish_now and not bearish_before then
         if last_signal.dir ~= "bearish" or last_signal.idx ~= 0 then
             last_signal = { dir = "bearish", idx = 0 }
-            core.log(string.format(
-                "空头排列形成: J=%.2f < K=%.2f < D=%.2f",
-                j0, k0, d0
-            ))
             core.shape_add_child("TriangleDown", 0, candle.close + 0.5)
         end
     end

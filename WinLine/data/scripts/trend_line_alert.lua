@@ -3,7 +3,6 @@
 -- 收线在线上方 → 看涨提醒；在线下方 → 看跌提醒
 
 function on_init(params)
-    core.log("trend_line_alert initialized (收线趋势线飞书提醒)")
     return true
 end
 
@@ -25,7 +24,6 @@ end
 -- 发送飞书消息
 local function send_alert(msg)
     core.send_feishu(msg)
-    core.log(msg)
 end
 
 -- 主逻辑

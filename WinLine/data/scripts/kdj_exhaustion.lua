@@ -4,16 +4,11 @@
 -- 用于识别当前趋势末端，预判反转
 
 function on_init(params)
-    core.log("kdj_exhaustion initialized (KDJ动能衰竭检测)")
     return true
 end
 
 -- 配置参数（可在图形属性中覆盖）
 local params_loaded = false
-
--- 打印日志计数器
-local log_count = 0
-local MAX_LOG = 3  -- 每个信号最多打印 3 次
 
 function on_bar_new(candle, script_name)
     -- 需要至少 3 根 K 线数据
@@ -90,5 +85,4 @@ function on_bar_new(candle, script_name)
     )
 
     core.send_feishu(msg)
-    core.log(msg)
 end

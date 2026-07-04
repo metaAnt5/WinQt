@@ -555,17 +555,12 @@ static int lua_core_shape_add_child(lua_State *L)
 
     int parentId = engine->currentScriptParentShapeId();
 
-    emit engine->scriptLog(QStringLiteral("[Lua-Dbg] lua_core_shape_add_child: type=%1 candleIndex=%2 price=%3 text=%4 parentId=%5")
-        .arg(typeStr).arg(candleIndex).arg(price).arg(text).arg(parentId));
-
     if (parentId <= 0) {
-        emit engine->scriptLog(QStringLiteral("[Lua-Dbg] lua_core_shape_add_child SKIP: parentId=%1 <= 0, type=%2 candleIndex=%3 price=%4 text=%5")
-            .arg(parentId).arg(typeStr).arg(candleIndex).arg(price).arg(text));
         lua_pushinteger(L, -1);
         return 1;
     }
 
-    // 判断类型：TriangleUp/TriangleDown → 数据坐标，随 K 线移动
+    // 判断类型
     bool isTriangle = (strcmp(typeStr, "TriangleUp") == 0 || strcmp(typeStr, "TriangleDown") == 0);
 
 
@@ -602,9 +597,6 @@ static int lua_core_child_add(lua_State *L)
     const char *text = luaL_optstring(L, 4, "");
 
     int parentId = engine->currentScriptParentShapeId();
-
-    emit engine->scriptLog(QStringLiteral("[Lua-Dbg] lua_core_child_add: type=%1 normX=%2 normY=%3 text=%4 parentId=%5")
-        .arg(typeStr).arg(normX).arg(normY).arg(text).arg(parentId));
 
     if (parentId <= 0) { lua_pushinteger(L, -1); return 1; }
 
@@ -877,8 +869,6 @@ void LuaScriptEngine::unloadByBinding(const QString &symbol, int timeframe)
 void LuaScriptEngine::requestBarEvent(const QString &symbol, int timeframe,
                                        const Candle &candle, bool isNewBar)
 {
-    emit scriptLog(QStringLiteral("[Lua-Dbg] requestBarEvent: %1 tf=%2 isNew=%3")
-        .arg(symbol).arg(timeframe).arg(isNewBar));
     if (QThread::currentThread() == QCoreApplication::instance()->thread()) {
         // 已经在主线程，直接调用
         onBarEvent(symbol, timeframe, candle, isNewBar);
@@ -900,15 +890,7 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
     QMutexLocker lock(&m_mutex);
 
     lua_State *L = (lua_State*)m_state;
-    if (!L) {
-        emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: L==null, skip symbol=%1 tf=%2")
-            .arg(symbol).arg(timeframe));
-        return;
-    }
-
-    emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: symbol=%1 tf=%2 idx=%3 isNew=%4 date=%5")
-        .arg(symbol).arg(timeframe).arg(candleIndex).arg(isNewBar)
-        .arg(candle.date.toString(Qt::ISODate)));
+    if (!L) return;
 
     // ── 更新回放状态（收到任何实时数据后，将对应 (symbol,tf) 置为实时模式） ──
     QString replayKey = symbol + "|" + QString::number(timeframe);
@@ -922,8 +904,6 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
 
     // ── 通过 m_symbolScriptMap 直接索引当前 (symbol,tf) 的脚本 ──
     QStringList scripts = m_symbolScriptMap.value(replayKey);
-    emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: m_symbolScriptMap[%1] = %2 scripts")
-        .arg(replayKey).arg(scripts.size()));
     if (scripts.isEmpty()) {
         // 也检查全局脚本（sym="" 或 tf=0）
         // 直接遍历 m_loadedScripts 找全局脚本
@@ -937,8 +917,6 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
                 scripts.append(it.key());
             }
         }
-        if (!scripts.isEmpty())
-            emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: found %1 global/matched scripts").arg(scripts.size()));
     }
 
     // 回放计数
@@ -976,23 +954,15 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
                 }
             }
         }
-        emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: script=%1 parentShapeId=%2")
-            .arg(scriptName).arg(m_currentParentShapeId));
-
         // 检查对应的回调函数
         const char *funcName = isNewBar ? "on_bar_new" : "on_bar_update";
         lua_getglobal(L, funcName);
         if (lua_type(L, -1) != LUA_TFUNCTION) {
-            emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: %1 not defined in %2, skip")
-                .arg(funcName).arg(scriptName));
             lua_pop(L, 1);
             m_currentScriptName.clear();
             m_currentParentShapeId = 0;
             continue;
         }
-        emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: calling %1.%2() idx=%3 parentShapeId=%4")
-            .arg(scriptName).arg(funcName).arg(candleIndex).arg(m_currentParentShapeId));
-
         // 构建 candle table（带上 index 字段，供脚本根据 K 线位置画子 shape）
         lua_createtable(L, 0, 7);
         lua_pushstring(L, "symbol"); lua_pushstring(L, symbol.toUtf8().constData()); lua_settable(L, -3);
@@ -1036,9 +1006,6 @@ void LuaScriptEngine::replayBars(const QString &symbol, int timeframe,
     bool oldReplay = m_isReplay;
     m_isReplay = true;
 
-    emit scriptLog(QStringLiteral("[Lua-Dbg] replayBars: %1 tf=%2 bars=%3")
-        .arg(symbol).arg(timeframe).arg(data.size()));
-
     // 逐根 K 线调用 onBarEvent
     // 第一根一定是新 K 线，后续每根与上一根时间不同也是新 K 线
     for (int i = 0; i < data.size(); ++i) {
@@ -1052,8 +1019,6 @@ void LuaScriptEngine::replayBars(const QString &symbol, int timeframe,
     // 恢复回放模式
     m_isReplay = oldReplay;
 
-    emit scriptLog(QStringLiteral("[Lua-Dbg] replayBars done: %1 tf=%2")
-        .arg(symbol).arg(timeframe));
 }
 
 void LuaScriptEngine::registerKLineWidget(KLineWidget *kw)
@@ -1158,13 +1123,7 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
                                      bool klineBound)
 {
     KLineWidget *kw = klineWidget();
-    if (!kw) {
-        emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape FAILED: kw==null, parentId=%1 type=%2 x=%3 y=%4 text=%5 klineBound=%6")
-            .arg(parentShapeId).arg(type).arg(x).arg(y).arg(text).arg(klineBound));
-        return -1;
-    }
-    emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape enter: parentId=%1 type=%2 x=%3 y=%4 text=%5 klineBound=%6")
-        .arg(parentShapeId).arg(type).arg(x).arg(y).arg(text).arg(klineBound));
+    if (!kw) return -1;
 
     QSharedPointer<Shape> s;
     if (klineBound) {
@@ -1191,8 +1150,6 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
     s->fromScript = true; // 脚本创建的子 shape 不保存到磁盘
 
     int newId = kw->addShape(s);
-    emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape result: newId=%1 (parentId=%2 type=%3)")
-        .arg(newId).arg(parentShapeId).arg(type));
     return newId;
 }
 

@@ -4,7 +4,6 @@
 -- 超卖区(K<20)下影线>实体 → 看涨反转
 
 function on_init(params)
-    core.log("kdj_reversal initialized")
     return true
 end
 
@@ -42,10 +41,6 @@ function on_bar_new(candle, script_name)
     if (k1 > 80 or d1 > 80) and upper_shadow > body then
         if b1.index ~= last_bearish_idx then
             last_bearish_idx = b1.index
-            core.log(string.format(
-                "看跌反转: K=%.2f D=%.2f 上影线=%.4f 实体=%.4f",
-                k1, d1, upper_shadow, body
-            ))
         end
         return
     end
@@ -54,10 +49,6 @@ function on_bar_new(candle, script_name)
     if (k1 < 20 or d1 < 20) and lower_shadow > body then
         if b1.index ~= last_bullish_idx then
             last_bullish_idx = b1.index
-            core.log(string.format(
-                "看涨反转: K=%.2f D=%.2f 下影线=%.4f 实体=%.4f",
-                k1, d1, lower_shadow, body
-            ))
         end
         return
     end
