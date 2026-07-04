@@ -353,7 +353,7 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 }
             }
 
-            if (clickedIdx >= 0 && dragEndpoint > 0) {
+            if (clickedIdx >= 0 && dragEndpoint > 0 && canDrag(static_cast<ShapeType>(m_shapes[clickedIdx].type))) {
                 m_selectedShapeIndex = clickedIdx;
                 m_draggingEndpoint = dragEndpoint;
                 m_lastMousePos = event->pos();
@@ -364,7 +364,12 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             if (clickedIdx >= 0) {
                 m_selectedShapeIndex = clickedIdx;
                 m_draggingEndpoint = 0;
-                m_movingShape = true;
+                // Only allow dragging move if the shape type supports it
+                if (canDrag(static_cast<ShapeType>(m_shapes[clickedIdx].type))) {
+                    m_movingShape = true;
+                } else {
+                    m_movingShape = false;
+                }
                 m_lastMousePos = event->pos();
                 update();
                 emit shapeSelected(m_selectedShapeIndex);
@@ -444,6 +449,20 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                         minDist = lineDist; clickedIdx = i; dragEndpoint = 0;
                     }
                 }
+            }
+
+            // If currently drawing (e.g. Trend line waiting for second click), complete the shape
+            if (m_drawing && m_selectedShapeIndex >= 0 && m_selectedShapeIndex < m_shapes.size()) {
+                // Second click: finalize the shape position
+                Shape &s = m_shapes[m_selectedShapeIndex];
+                screenToDataCoord(pt, s.x2, s.y2);
+                m_drawing = false;
+                m_draggingEndpoint = 0;
+                m_movingShape = false;
+                m_selectedShapeIndex = -1;
+                saveShapes();
+                setToolMode(Tool_None);
+                return;
             }
 
             if (clickedIdx >= 0) {
@@ -699,7 +718,8 @@ void KLineWidget::mouseReleaseEvent(QMouseEvent *event)
     // Drawing modes: stop dragging/panning
     m_draggingEndpoint = 0;
     m_movingShape = false;
-    m_drawing = false;
+    // Don't reset m_drawing here - it's needed for multi-click shapes (Trend)
+    // m_drawing will be reset when the shape is completed in mousePressEvent
     if (m_panning) {
         m_panning = false;
         setCursor(Qt::ArrowCursor);
@@ -1163,10 +1183,16 @@ void KLineWidget::setTimeframe(Timeframe tf)
 
 void KLineWidget::setToolMode(ToolMode m)
 {
+    // 如果 m_drawing 为 true 说明有未完成的 shape（例如 Trend 只点了第一下），
+    // 切换工具时必须将其从 m_shapes 中移除，避免残留 shape 干扰新工具操作
+    if (m_drawing && m_selectedShapeIndex >= 0 && m_selectedShapeIndex < m_shapes.size()) {
+        m_shapes.removeAt(m_selectedShapeIndex);
+    }
     m_toolMode = m;
     m_selectedShapeIndex = -1;
     m_drawing = false;
     m_draggingEndpoint = 0;
+    m_movingShape = false;
     // set cursor according to mode
     if (m_toolMode == Tool_None) setCursor(Qt::ArrowCursor);
     else if (m_toolMode == Tool_Fixed)
@@ -1178,7 +1204,13 @@ void KLineWidget::setToolMode(ToolMode m)
 void KLineWidget::deleteSelectedShape()
 {
     if (m_selectedShapeIndex >= 0 && m_selectedShapeIndex < m_shapes.size()) {
-        m_shapes.removeAt(m_selectedShapeIndex);
+        int parentId = m_shapes[m_selectedShapeIndex].id;
+        // 删除该 shape 及其所有子 shape
+        m_shapes.erase(std::remove_if(m_shapes.begin(), m_shapes.end(),
+            [parentId](const Shape &s) {
+                return s.id == parentId || s.ownerShapeId == parentId;
+            }),
+            m_shapes.end());
         saveShapes();
     }
     m_selectedShapeIndex = -1;
@@ -1816,6 +1848,7 @@ void KLineWidget::loadShapes()
             s.x2 = obj["candleIdx2"].toDouble();
             s.y2 = obj["price2"].toDouble();
         }
+        // movable field removed - behavior is now determined by ShapeType via canDrag()
         s.ownerShapeId = obj["ownerShapeId"].toInt(0);
         QString ts = obj["tradeTime"].toString();
         s.tradeTime = ts.isEmpty() ? QDateTime() : QDateTime::fromString(ts, Qt::ISODate);

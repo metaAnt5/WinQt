@@ -70,6 +70,11 @@ public:
         bool fromScript = false;   // 由脚本创建（不保存到磁盘）
     };
 
+    // 根据 ShapeType 判断是否可以手动拖动
+    static bool canDrag(ShapeType type) {
+        return type == Shape_Line || type == Shape_Trend || type == Shape_Fixed;
+    }
+
     void setToolMode(ToolMode m);
     const QVector<Shape>& shapes() const { return m_shapes; }
     int selectedShapeIndex() const { return m_selectedShapeIndex; }

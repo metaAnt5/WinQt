@@ -1158,6 +1158,8 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
     s.text = text;
     s.color = QColor(255, 200, 100);
     s.fromScript = true; // 脚本创建的子 shape 不保存到磁盘
+    // movable 已移除，拖动行为由 ShapeType 通过 canDrag() 决定：
+    //   Triangle → 不可拖动，Fixed → 可拖动
 
     if (klineBound) {
         // Attach_KLineBound: 数据坐标 (x=candleIndex, y=price)，跟随 K 线滚动
