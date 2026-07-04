@@ -428,6 +428,9 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 const Shape &s = m_shapes[i];
                 // Skip Fixed shapes (not draggable in drawing mode)
                 if (s.attachment == Attach_Fixed) continue;
+                // 在绘制模式的首次点击时，跳过不可拖动的 shape（如三角形子 shape），
+                // 防止误进入拖动已有 shape 分支而无法创建新图形
+                if (!m_drawing && !canDrag(static_cast<ShapeType>(s.type))) continue;
                 QPointF screenP1, screenP2;
                 dataCoordToScreen(s.x1, s.y1, screenP1);
                 dataCoordToScreen(s.x2, s.y2, screenP2);
@@ -1032,6 +1035,9 @@ void KLineWidget::paintEvent(QPaintEvent *event)
                 p.drawLine(screenP1, bestPt);
             }
         } else if (s.type == Shape_UpTriangle) {
+            // 三角形跟随 K 线，只有索引在可见范围时才绘制
+            int idx = static_cast<int>(s.x1);
+            if (idx < m_startIndex || idx >= m_startIndex + visibleCount()) continue;
             // Draw up triangle with width = candle body width, centered on candleIdx1 at price y1
             double bw = candleBodyWidth();
             if (bw < 2.0) bw = 8.0 * m_scale;
@@ -1045,6 +1051,9 @@ void KLineWidget::paintEvent(QPaintEvent *event)
             p.setBrush(s.color.isValid() ? s.color : QColor(100, 255, 100));
             p.drawPolygon(tri);
         } else if (s.type == Shape_DownTriangle) {
+            // 三角形跟随 K 线，只有索引在可见范围时才绘制
+            int idx = static_cast<int>(s.x1);
+            if (idx < m_startIndex || idx >= m_startIndex + visibleCount()) continue;
             // Draw down triangle with width = candle body width, centered on candleIdx1 at price y1
             double bw = candleBodyWidth();
             if (bw < 2.0) bw = 8.0 * m_scale;
