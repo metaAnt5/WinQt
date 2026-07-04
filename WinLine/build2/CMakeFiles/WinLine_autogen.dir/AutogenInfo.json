@@ -467,6 +467,36 @@
 			null
 		],
 		[
+			"F:/stock/WinLineQt/WinQt/WinLine/shapes/fixedshape.h",
+			"MU",
+			"U4ZD2ZJ57N/moc_fixedshape.cpp",
+			null
+		],
+		[
+			"F:/stock/WinLineQt/WinQt/WinLine/shapes/lineshape.h",
+			"MU",
+			"U4ZD2ZJ57N/moc_lineshape.cpp",
+			null
+		],
+		[
+			"F:/stock/WinLineQt/WinQt/WinLine/shapes/shape.h",
+			"MU",
+			"U4ZD2ZJ57N/moc_shape.cpp",
+			null
+		],
+		[
+			"F:/stock/WinLineQt/WinQt/WinLine/shapes/trendshape.h",
+			"MU",
+			"U4ZD2ZJ57N/moc_trendshape.cpp",
+			null
+		],
+		[
+			"F:/stock/WinLineQt/WinQt/WinLine/shapes/triangleshape.h",
+			"MU",
+			"U4ZD2ZJ57N/moc_triangleshape.cpp",
+			null
+		],
+		[
 			"F:/stock/WinLineQt/WinQt/WinLine/simengine.h",
 			"MU",
 			"EWIEGA46WW/moc_simengine.cpp",
@@ -687,6 +717,15 @@
 		[ "F:/stock/WinLineQt/WinQt/WinLine/providerfactory.cpp", "MU", null ],
 		[ "F:/stock/WinLineQt/WinQt/WinLine/settingsdialog.cpp", "MU", null ],
 		[ "F:/stock/WinLineQt/WinQt/WinLine/shapedialog.cpp", "MU", null ],
+		[ "F:/stock/WinLineQt/WinQt/WinLine/shapes/fixedshape.cpp", "MU", null ],
+		[ "F:/stock/WinLineQt/WinQt/WinLine/shapes/lineshape.cpp", "MU", null ],
+		[ "F:/stock/WinLineQt/WinQt/WinLine/shapes/shape.cpp", "MU", null ],
+		[ "F:/stock/WinLineQt/WinQt/WinLine/shapes/trendshape.cpp", "MU", null ],
+		[
+			"F:/stock/WinLineQt/WinQt/WinLine/shapes/triangleshape.cpp",
+			"MU",
+			null
+		],
 		[ "F:/stock/WinLineQt/WinQt/WinLine/simengine.cpp", "MU", null ],
 		[ "F:/stock/WinLineQt/WinQt/WinLine/simreader.cpp", "MU", null ],
 		[ "F:/stock/WinLineQt/WinQt/WinLine/simwindow.cpp", "MU", null ],

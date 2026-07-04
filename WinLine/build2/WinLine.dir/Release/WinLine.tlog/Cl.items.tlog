@@ -21,6 +21,11 @@ F:\stock\WinLineQt\WinQt\WinLine\luascriptengine.cpp;F:\stock\WinLineQt\WinQt\Wi
 F:\stock\WinLineQt\WinQt\WinLine\settingsdialog.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\settingsdialog.obj
 F:\stock\WinLineQt\WinQt\WinLine\indicatorcalc.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\indicatorcalc.obj
 F:\stock\WinLineQt\WinQt\WinLine\shapedialog.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\shapedialog.obj
+F:\stock\WinLineQt\WinQt\WinLine\shapes\shape.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\shape.obj
+F:\stock\WinLineQt\WinQt\WinLine\shapes\lineshape.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\lineshape.obj
+F:\stock\WinLineQt\WinQt\WinLine\shapes\trendshape.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\trendshape.obj
+F:\stock\WinLineQt\WinQt\WinLine\shapes\triangleshape.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\triangleshape.obj
+F:\stock\WinLineQt\WinQt\WinLine\shapes\fixedshape.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\fixedshape.obj
 F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\KBarRpcService.obj
 F:\stock\WinLineQt\WinQt\WinLine\chartconfig.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\chartconfig.obj
 F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\mocs_compilation_Release.cpp;F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine.dir\Release\mocs_compilation_Release.obj

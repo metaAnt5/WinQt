@@ -73,6 +73,21 @@
     <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\shape.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\lineshape.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\trendshape.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\triangleshape.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\fixedshape.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -160,6 +175,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\shape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\lineshape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\trendshape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\triangleshape.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\fixedshape.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.h">

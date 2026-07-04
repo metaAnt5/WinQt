@@ -1,7 +1,11 @@
 F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW/moc_simwindow.cpp: F:/stock/WinLineQt/WinQt/WinLine/simwindow.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/QDateTime \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonArray \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/QJsonObject \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/QMap \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/QPointF \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/QRect \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/QSharedPointer \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/QString \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/QVector \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/q20functional.h \
@@ -23,6 +27,8 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearraylist.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qbytearrayview.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcalendar.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborcommon.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcborvalue.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qchar.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qcompare_impl.h \
@@ -54,6 +60,9 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiodevicebase.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterable.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qiterator.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonarray.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonobject.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/qjsonvalue.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlatin1stringview.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qline.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qlist.h \
@@ -78,6 +87,7 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qprocessordetection.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrect.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qrefcount.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/qregularexpression.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopedpointer.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qscopeguard.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qset.h \
@@ -121,6 +131,7 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qtypes.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qurl.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qutf8stringview.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtCore/quuid.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvariant.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvarlengtharray.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qvector.h \
@@ -128,6 +139,7 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qxptype_traits.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtCore/qyieldcpu.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/QColor \
+  C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPainter \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/QPolygonF \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qaction.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qbitmap.h \
@@ -141,7 +153,9 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qimage.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qkeysequence.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpaintdevice.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpainter.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpalette.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpen.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpicture.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixelformat.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qpixmap.h \
@@ -150,6 +164,7 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgb.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qrgba64.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextdocument.h \
+  C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtextoption.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtgui-config.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiexports.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtGui/qtguiglobal.h \
@@ -168,4 +183,5 @@ F:/stock/WinLineQt/WinQt/WinLine/build2/WinLine_autogen/include_Debug/EWIEGA46WW
   C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qtwidgetsexports.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qtwidgetsglobal.h \
   C:/Qt/6.7.2/msvc2019_64/include/QtWidgets/qwidget.h \
-  F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h
+  F:/stock/WinLineQt/WinQt/WinLine/klinewidget.h \
+  F:/stock/WinLineQt/WinQt/WinLine/shapes/shape.h

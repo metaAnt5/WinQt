@@ -9,7 +9,8 @@
 #include <QPointF>
 #include <QPolygonF>
 #include <QMap>
-
+#include <QSharedPointer>
+#include "shapes/shape.h"
 
 struct Candle {
     QDateTime date;
@@ -35,62 +36,25 @@ public:
     void setTimeframe(Timeframe tf);
 
     // Drawing tools
-    // Drawing tools (simplified)
     enum ToolMode { Tool_None = 0, Tool_Line, Tool_Trend, Tool_UpTriangle, Tool_DownTriangle,
                     Tool_Fixed };
-    enum ShapeType { Shape_Line = 0, Shape_Trend, Shape_UpTriangle, Shape_DownTriangle,
-                     Shape_Fixed = 100 };
-    // Shape attachment category
-    enum ShapeAttachment { Attach_KLineBound = 0,  // K-line bound, moves with zoom/pan
-                           Attach_Fixed };          // Fixed position, does not move
-    struct Shape {
-        ShapeType type;
-        QString text;
-        bool selected;
-        QString name;   // user-assigned name
-        QColor color;   // user-selected color
-        int id;         // unique identifier
-        // attachment category
-        ShapeAttachment attachment = Attach_KLineBound;
-        // Unified coordinates:
-        //   Attach_KLineBound: (x, y) = (candleIndex, price)
-        //   Attach_Fixed:      (x, y) = (normX, normY) in 0..1
-        double x1 = 0.0, y1 = 0.0;  // point 1
-        double x2 = 0.0, y2 = 0.0;  // point 2
-        // script ownership: 0 = user-created, >0 = child of shape with this id
-        int ownerShapeId = 0;
-        // trade-specific fields
-        double tradePrice = 0.0;   // 成交价
-        QDateTime tradeTime;       // 成交时间
-        int quantity = 1;          // 数量
-        double profit = 0.0;       // 平仓盈亏
-        // script extension fields
-        QString scriptName;        // 关联的 Lua 脚本名称（如 "ma_cross.lua"）
-        QString scriptParams;      // 脚本参数（JSON 字符串，灵活扩展）
-        bool fromScript = false;   // 由脚本创建（不保存到磁盘）
-    };
-
-    // 根据 ShapeType 判断是否可以手动拖动
-    static bool canDrag(ShapeType type) {
-        return type == Shape_Line || type == Shape_Trend || type == Shape_Fixed;
-    }
 
     void setToolMode(ToolMode m);
-    const QVector<Shape>& shapes() const { return m_shapes; }
+    const QVector<QSharedPointer<Shape>>& shapes() const { return m_shapes; }
     int selectedShapeIndex() const { return m_selectedShapeIndex; }
-    void setShapes(const QVector<Shape> &shapes) { m_shapes = shapes; m_selectedShapeIndex = -1; update(); }
-    // Adds a shape and assigns it a unique id; returns the shape id
-    int addShape(const Shape &s);
+    void setShapes(const QVector<QSharedPointer<Shape>> &shapes) { m_shapes = shapes; m_selectedShapeIndex = -1; update(); }
+    int addShape(QSharedPointer<Shape> s);
     void deleteSelectedShape();
     void clearShapes();
 
     // Loading overlay
     void showLoading(const QString &msg = QStringLiteral("Loading..."));
     void hideLoading();
-    void screenToDataCoord(const QPointF &screenPt, double &candleIdx, double &price);
-    void dataCoordToScreen(double candleIdx, double price, QPointF &screenPt);
-    double pointToLineDist(const QPointF &p, const QPointF &a, const QPointF &b);
-    double pointToRayDist(const QPointF &p, const QPointF &a, const QPointF &b);
+    void screenToDataCoord(const QPointF &screenPt, double &candleIdx, double &price) const;
+    void dataCoordToScreen(double candleIdx, double price, QPointF &screenPt) const;
+    // 兼容旧接口，现在转发到 shapes 命名空间的几何函数
+    double pointToLineDist(const QPointF &p, const QPointF &a, const QPointF &b) { return ::pointToLineDist2(p, a, b); }
+    double pointToRayDist(const QPointF &p, const QPointF &a, const QPointF &b) { return ::pointToRayDist2(p, a, b); }
 
     // Layout / mapping helpers so other panes can align to the same candle centers
     QRect mainChartRect() const;
@@ -102,7 +66,6 @@ public:
     // Fixed shape helpers
     QPointF screenToNorm(const QPoint &screenPt) const;
     QPoint normToScreen(double normX, double normY) const;
-    void drawFixedShapes(QPainter &p);
     // Convert data coordinate (candle index, price) to normalized coordinate (0..1)
     void dataToNorm(int candleIdx, double price, double &normX, double &normY) const;
 
@@ -124,6 +87,14 @@ public:
 
     // Helper: find candle index by time (binary search on m_data)
     int findCandleIndexByTime(const QDateTime &time) const;
+
+    // 供 shapes 子类使用的内部数据（公开给 shapes/ 目录访问）
+    const QVector<Candle>& data() const { return m_data; }
+    int visibleCount() const;
+    double m_minPrice = 0;
+    double m_maxPrice = 0;
+    double m_scale = 1.0;
+    int m_startIndex = 0;
 
 Q_SIGNALS:
     void crosshairIndexChanged(int index);
@@ -158,35 +129,30 @@ protected:
 
 private:
     QVector<Candle> m_data;    // displayed data (single source of truth)
-    double m_minPrice;
-    double m_maxPrice;
     void updateRange();
 
     // interaction
-    double m_scale;           // zoom scale for candle width
-    double m_candleWidth;     // base candle width (before scale)
-    double m_gap;             // gap between candles
-    int m_startIndex;         // first displayed candle index
+    double m_candleWidth = 6.0;     // base candle width (before scale)
+    double m_gap = 2.0;             // gap between candles
     QPoint m_lastMousePos;
-    bool m_panning;
+    bool m_panning = false;
 
     // crosshair
-    bool m_crosshairVisible;
+    bool m_crosshairVisible = false;
     QPoint m_crosshairPos;
 
     // drawing tools
-    ToolMode m_toolMode;
-    QVector<Shape> m_shapes;
-    int m_selectedShapeIndex;
-    bool m_drawing;
-    int m_draggingEndpoint; // 0 = none, 1 = p1, 2 = p2
-    bool m_movingShape;
+    ToolMode m_toolMode = Tool_None;
+    QVector<QSharedPointer<Shape>> m_shapes;
+    int m_selectedShapeIndex = -1;
+    bool m_drawing = false;
+    int m_draggingEndpoint = 0; // 0 = none, 1 = p1, 2 = p2
+    bool m_movingShape = false;
 
-    int visibleCount() const;
     void ensureStartIndexVisible();
 
     // layout
-    int m_rightPadding;
+    int m_rightPadding = 80;
     
     // Moving Average settings
     bool m_showMA5 = true;
@@ -201,11 +167,10 @@ private:
     
     void calculateMovingAverages();
     void drawMovingAverages(QPainter &p); // extra right blank space so K lines don't touch edge
-    Timeframe m_timeframe;
-    int m_baseMinutes; // base timeframe of m_data in minutes
-    int m_nextShapeId; // incremental id for shapes
+    Timeframe m_timeframe = TF_1m;
+    int m_baseMinutes = 1; // base timeframe of m_data in minutes
+    int m_nextShapeId = 1; // incremental id for shapes
 
-    void emitCrosshairSignals();
     void snapCrosshairTo(const QPointF &pos);
 
     // Loading overlay

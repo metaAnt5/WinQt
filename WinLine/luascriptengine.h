@@ -85,7 +85,7 @@ public:
 
     // ── shapes 缓存查询 ──
     // 获取指定 (symbol, tf) 的缓存的 shapes
-    QVector<QSharedPointer<KLineWidget::Shape>> shapesForBinding(const QString &symbol, int timeframe) const;
+    QVector<QSharedPointer<Shape>> shapesForBinding(const QString &symbol, int timeframe) const;
 
     // 手动刷新某 (symbol,tf) 的 shapes 缓存（由 UI 保存 shapes 后调用）
     void reloadShapesForSymbol(const QString &symbol, int timeframe);
@@ -134,7 +134,7 @@ public:
     int currentTimeframe() const { return m_currentTimeframe; }
 
     // 脚本名→shapes 的快速索引（供 findShapesForScript 使用）
-    const QHash<QString, QVector<QSharedPointer<KLineWidget::Shape>>>& scriptShapesIndex() const { return m_scriptShapesIndex; }
+    const QHash<QString, QVector<QSharedPointer<Shape>>>& scriptShapesIndex() const { return m_scriptShapesIndex; }
 
     // 获取当前正在执行的脚本名（供 C 回调在无显式参数时确定上下文）
     QString currentScriptName() const { return m_currentScriptName; }
@@ -146,8 +146,8 @@ public:
     std::shared_ptr<NetCore::IoContextManager> ioContextManager() const { return m_ioCtxMgr; }
 
     // 获取某 (symbol,tf) 的磁盘 shapes 缓存（供 main.cpp 自动加载时使用）
-    const QVector<QSharedPointer<KLineWidget::Shape>> &shapesDiskCache(const QString &key) const {
-        static QVector<QSharedPointer<KLineWidget::Shape>> empty;
+    const QVector<QSharedPointer<Shape>> &shapesDiskCache(const QString &key) const {
+        static QVector<QSharedPointer<Shape>> empty;
         auto it = m_shapesDiskCache.find(key);
         return it != m_shapesDiskCache.end() ? it.value() : empty;
     }
@@ -176,13 +176,13 @@ private:
 
     // 从 data/shapes/*.json 解析缓存的 shapes（独立于 KLineWidget）
     // key = "symbol|timeframe"
-    QHash<QString, QVector<QSharedPointer<KLineWidget::Shape>>> m_shapesDiskCache;
+    QHash<QString, QVector<QSharedPointer<Shape>>> m_shapesDiskCache;
 
     // ── 脚本名 → shapes 的快速索引（避免每次 O(N) 遍历） ──
     // 在 loadShapesFromDisk / reloadShapesForSymbol 时重建
     // key = scriptName (不带 .lua 后缀)
     // 注意：一个脚本可能关联多个符号/周期的多条线，所以用 QVector
-    QHash<QString, QVector<QSharedPointer<KLineWidget::Shape>>> m_scriptShapesIndex;
+    QHash<QString, QVector<QSharedPointer<Shape>>> m_scriptShapesIndex;
 
     // 当前脚本正在处理的 (symbol,tf)，用于 core.* API 在无 UI 时获取数据
     // 由 onBarEvent 调用前设置

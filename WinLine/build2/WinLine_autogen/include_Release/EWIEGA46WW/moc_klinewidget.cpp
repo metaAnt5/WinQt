@@ -55,9 +55,7 @@ constexpr auto qt_meta_stringdata_CLASSKLineWidgetENDCLASS = QtMocHelpers::strin
     "totalPer",
     "candleBodyWidth",
     "mainChartRect",
-    "shapesChanged",
     "shapeSelected",
-    "shapesLoaded",
     "shapesSaved",
     "symbol",
     "timeframe",
@@ -78,26 +76,24 @@ Q_CONSTINIT static const uint qt_meta_data_CLASSKLineWidgetENDCLASS[] = {
       12,       // revision
        0,       // classname
        0,    0, // classinfo
-      12,   14, // methods
+      10,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
-      12,       // signalCount
+      10,       // signalCount
 
  // signals: name, argc, parameters, tag, flags, initial metatype offsets
-       1,    1,   86,    2, 0x06,    1 /* Public */,
-       4,    2,   89,    2, 0x06,    3 /* Public */,
-       6,    1,   94,    2, 0x06,    6 /* Public */,
-       8,    1,   97,    2, 0x06,    8 /* Public */,
-      11,    2,  100,    2, 0x06,   10 /* Public */,
-      14,    5,  105,    2, 0x06,   13 /* Public */,
-      18,    0,  116,    2, 0x06,   19 /* Public */,
-      19,    1,  117,    2, 0x06,   20 /* Public */,
-      20,    0,  120,    2, 0x06,   22 /* Public */,
-      21,    2,  121,    2, 0x06,   23 /* Public */,
-      24,    2,  126,    2, 0x06,   26 /* Public */,
-      28,    1,  131,    2, 0x06,   29 /* Public */,
+       1,    1,   74,    2, 0x06,    1 /* Public */,
+       4,    2,   77,    2, 0x06,    3 /* Public */,
+       6,    1,   82,    2, 0x06,    6 /* Public */,
+       8,    1,   85,    2, 0x06,    8 /* Public */,
+      11,    2,   88,    2, 0x06,   10 /* Public */,
+      14,    5,   93,    2, 0x06,   13 /* Public */,
+      18,    1,  104,    2, 0x06,   19 /* Public */,
+      19,    2,  107,    2, 0x06,   21 /* Public */,
+      22,    2,  112,    2, 0x06,   24 /* Public */,
+      26,    1,  117,    2, 0x06,   27 /* Public */,
 
  // signals: parameters
     QMetaType::Void, QMetaType::Int,    3,
@@ -106,11 +102,9 @@ Q_CONSTINIT static const uint qt_meta_data_CLASSKLineWidgetENDCLASS[] = {
     QMetaType::Void, 0x80000000 | 9,   10,
     QMetaType::Void, QMetaType::Int, QMetaType::Int,   12,   13,
     QMetaType::Void, QMetaType::Int, QMetaType::Int, QMetaType::Double, QMetaType::Double, QMetaType::QRect,   12,   13,   15,   16,   17,
-    QMetaType::Void,
     QMetaType::Void, QMetaType::Int,    3,
-    QMetaType::Void,
-    QMetaType::Void, QMetaType::QString, QMetaType::Int,   22,   23,
-    QMetaType::Void, 0x80000000 | 25, QMetaType::Bool,   26,   27,
+    QMetaType::Void, QMetaType::QString, QMetaType::Int,   20,   21,
+    QMetaType::Void, 0x80000000 | 23, QMetaType::Bool,   24,   25,
     QMetaType::Void, QMetaType::Int,    3,
 
        0        // eod
@@ -149,13 +143,9 @@ Q_CONSTINIT const QMetaObject KLineWidget::staticMetaObject = { {
         QtPrivate::TypeAndForceComplete<double, std::false_type>,
         QtPrivate::TypeAndForceComplete<double, std::false_type>,
         QtPrivate::TypeAndForceComplete<QRect, std::false_type>,
-        // method 'shapesChanged'
-        QtPrivate::TypeAndForceComplete<void, std::false_type>,
         // method 'shapeSelected'
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
         QtPrivate::TypeAndForceComplete<int, std::false_type>,
-        // method 'shapesLoaded'
-        QtPrivate::TypeAndForceComplete<void, std::false_type>,
         // method 'shapesSaved'
         QtPrivate::TypeAndForceComplete<void, std::false_type>,
         QtPrivate::TypeAndForceComplete<const QString &, std::false_type>,
@@ -183,12 +173,10 @@ void KLineWidget::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id,
         case 3: _t->dataAggregated((*reinterpret_cast< std::add_pointer_t<QList<Candle>>>(_a[1]))); break;
         case 4: _t->viewportChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
         case 5: _t->layoutChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[3])),(*reinterpret_cast< std::add_pointer_t<double>>(_a[4])),(*reinterpret_cast< std::add_pointer_t<QRect>>(_a[5]))); break;
-        case 6: _t->shapesChanged(); break;
-        case 7: _t->shapeSelected((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
-        case 8: _t->shapesLoaded(); break;
-        case 9: _t->shapesSaved((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
-        case 10: _t->candleUpdated((*reinterpret_cast< std::add_pointer_t<Candle>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<bool>>(_a[2]))); break;
-        case 11: _t->shapeDoubleClicked((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 6: _t->shapeSelected((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
+        case 7: _t->shapesSaved((*reinterpret_cast< std::add_pointer_t<QString>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
+        case 8: _t->candleUpdated((*reinterpret_cast< std::add_pointer_t<Candle>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<bool>>(_a[2]))); break;
+        case 9: _t->shapeDoubleClicked((*reinterpret_cast< std::add_pointer_t<int>>(_a[1]))); break;
         default: ;
         }
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
@@ -201,7 +189,7 @@ void KLineWidget::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id,
                 *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType::fromType< QList<Candle> >(); break;
             }
             break;
-        case 10:
+        case 8:
             switch (*reinterpret_cast<int*>(_a[1])) {
             default: *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType(); break;
             case 0:
@@ -254,44 +242,30 @@ void KLineWidget::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id,
             }
         }
         {
-            using _t = void (KLineWidget::*)();
-            if (_t _q_method = &KLineWidget::shapesChanged; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
-                *result = 6;
-                return;
-            }
-        }
-        {
             using _t = void (KLineWidget::*)(int );
             if (_t _q_method = &KLineWidget::shapeSelected; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
-                *result = 7;
-                return;
-            }
-        }
-        {
-            using _t = void (KLineWidget::*)();
-            if (_t _q_method = &KLineWidget::shapesLoaded; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
-                *result = 8;
+                *result = 6;
                 return;
             }
         }
         {
             using _t = void (KLineWidget::*)(const QString & , int );
             if (_t _q_method = &KLineWidget::shapesSaved; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
-                *result = 9;
+                *result = 7;
                 return;
             }
         }
         {
             using _t = void (KLineWidget::*)(const Candle & , bool );
             if (_t _q_method = &KLineWidget::candleUpdated; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
-                *result = 10;
+                *result = 8;
                 return;
             }
         }
         {
             using _t = void (KLineWidget::*)(int );
             if (_t _q_method = &KLineWidget::shapeDoubleClicked; *reinterpret_cast<_t *>(_a[1]) == _q_method) {
-                *result = 11;
+                *result = 9;
                 return;
             }
         }
@@ -317,13 +291,13 @@ int KLineWidget::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 12)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 12;
+        _id -= 10;
     } else if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 12)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 12;
+        _id -= 10;
     }
     return _id;
 }
@@ -371,42 +345,30 @@ void KLineWidget::layoutChanged(int _t1, int _t2, double _t3, double _t4, QRect 
 }
 
 // SIGNAL 6
-void KLineWidget::shapesChanged()
-{
-    QMetaObject::activate(this, &staticMetaObject, 6, nullptr);
-}
-
-// SIGNAL 7
 void KLineWidget::shapeSelected(int _t1)
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
+    QMetaObject::activate(this, &staticMetaObject, 6, _a);
+}
+
+// SIGNAL 7
+void KLineWidget::shapesSaved(const QString & _t1, int _t2)
+{
+    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))) };
     QMetaObject::activate(this, &staticMetaObject, 7, _a);
 }
 
 // SIGNAL 8
-void KLineWidget::shapesLoaded()
-{
-    QMetaObject::activate(this, &staticMetaObject, 8, nullptr);
-}
-
-// SIGNAL 9
-void KLineWidget::shapesSaved(const QString & _t1, int _t2)
-{
-    void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))) };
-    QMetaObject::activate(this, &staticMetaObject, 9, _a);
-}
-
-// SIGNAL 10
 void KLineWidget::candleUpdated(const Candle & _t1, bool _t2)
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))), const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t2))) };
-    QMetaObject::activate(this, &staticMetaObject, 10, _a);
+    QMetaObject::activate(this, &staticMetaObject, 8, _a);
 }
 
-// SIGNAL 11
+// SIGNAL 9
 void KLineWidget::shapeDoubleClicked(int _t1)
 {
     void *_a[] = { nullptr, const_cast<void*>(reinterpret_cast<const void*>(std::addressof(_t1))) };
-    QMetaObject::activate(this, &staticMetaObject, 11, _a);
+    QMetaObject::activate(this, &staticMetaObject, 9, _a);
 }
 QT_WARNING_POP

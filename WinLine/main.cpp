@@ -51,21 +51,78 @@
 #include <QJsonArray>
 #include <QSet>
 #include <QGroupBox>
+#include <QDateTime>
+
+// 日志写入文件（Release 版没有控制台窗口，WIN32_EXECUTABLE TRUE）
+// 使用 OutputDebugStringA 输出到 DebugView，同时写入日志文件
+#include <io.h>
+#include <fcntl.h>
+#include <fstream>
+
+static std::ofstream s_logFile;
+static bool s_logFileOpened = false;
+
+static void openLogFile()
+{
+    if (s_logFileOpened) return;
+    s_logFileOpened = true;
+    QString logPath = QCoreApplication::applicationDirPath() + "/WinLine_debug.log";
+    s_logFile.open(logPath.toStdString(), std::ios::out | std::ios::app);
+    if (s_logFile.is_open()) {
+        s_logFile << "=== WinLine Debug Log Started ===" << std::endl;
+        s_logFile.flush();
+    }
+}
+
+static void debugLog(const char *msg)
+{
+    qDebug() << "[DBG]" << msg;
+    openLogFile();
+    if (s_logFile.is_open()) {
+        s_logFile << "[DBG] " << msg << std::endl;
+        s_logFile.flush();
+    }
+    OutputDebugStringA("[DBG] ");
+    OutputDebugStringA(msg);
+    OutputDebugStringA("\n");
+}
+
+static void debugLog2(const char *tag, const QString &val)
+{
+    QString full = QString("[DBG] %1: %2").arg(tag).arg(val);
+    qDebug().noquote() << full;
+    openLogFile();
+    if (s_logFile.is_open()) {
+        s_logFile << full.toStdString() << std::endl;
+        s_logFile.flush();
+    }
+    OutputDebugStringA(full.toUtf8().constData());
+    OutputDebugStringA("\n");
+}
 
 int main(int argc, char *argv[])
 {
+    debugLog("main() started");
+
     QApplication a(argc, argv);
 
     // 注册 Candle 元类型，支持跨线程 QueuedConnection 信号传递
     qRegisterMetaType<Candle>("Candle");
+    debugLog("qRegisterMetaType done");
+
 #ifdef QT_DEBUG
     QMessageBox::information(nullptr, "调试提示", "当前为 Debug 构建，工程可以编译并进行调试。");
     // In debug builds, prefer the current working directory (project code dir) as the data root
     AppPaths::setDataRoot(QDir::currentPath());
+    debugLog("Debug build, AppPaths::setDataRoot set");
+#else
+    debugLog("Release build");
 #endif
 
     // create main window UI
+    debugLog("Creating MainWindow...");
     MainWindow mainWindow;
+    debugLog("MainWindow created");
 
     // 菜单栏：设置
     QAction *settingsAction = mainWindow.menuBar()->addAction("设置");
@@ -77,6 +134,7 @@ int main(int argc, char *argv[])
         }
     });
 
+    debugLog("Creating toolbar...");
     // toolbar (use QMainWindow's toolbar)
     QToolBar *toolbar = new QToolBar(&mainWindow);
     mainWindow.addToolBar(toolbar);
@@ -91,13 +149,17 @@ int main(int argc, char *argv[])
     QAction *ah4 = toolbar->addAction("H4"); ah4->setCheckable(true); periodGroup->addAction(ah4);
     QAction *ad = toolbar->addAction("Daily"); ad->setCheckable(true); periodGroup->addAction(ad);
     QAction *aw = toolbar->addAction("Weekly"); aw->setCheckable(true); periodGroup->addAction(aw);
+    debugLog("Creating widgets...");
     // ensure main chart and indicator widgets exist
     KLineWidget *k = new KLineWidget;
+    debugLog("KLineWidget created");
     IndicatorWidget *ind = new IndicatorWidget;
+    debugLog("IndicatorWidget created");
 
     // create stacked widget with Volume, KDJ, MACD and install ClickFilter to handle double-click switching
     QStackedWidget *stack = new QStackedWidget;
     VolumeWidget *volw = new VolumeWidget;
+    debugLog("VolumeWidget created");
     IndicatorWidget *kjw = ind; // reuse existing
     MacdWidget *macdw = new MacdWidget;
     stack->addWidget(volw);
@@ -126,20 +188,29 @@ int main(int argc, char *argv[])
     rightSplit->setStretchFactor(1, 1);
 
     // list on the left
+    debugLog("Creating tree widget...");
     QTreeWidget *tree = new QTreeWidget;
     tree->setHeaderHidden(true);
     MarketsConfig cfg;
     // resolve config directory using AppPaths so debug/run paths are unified
+    debugLog("Resolving config directory via AppPaths...");
     QString configDir = AppPaths::resolveDataDir("config");
+    debugLog2("configDir resolved to", configDir);
     QString cfgPath = QDir(configDir).filePath("markets.xml");
+    debugLog2("cfgPath", cfgPath);
+    debugLog("Loading markets.xml...");
     bool loaded = cfg.loadFromFile(cfgPath);
+    debugLog2("markets.xml loaded = ", loaded ? "true" : "false");
     if (!loaded) {
         // failed to load configuration -> show error and quit
+        debugLog("markets.xml loading FAILED, will show error dialog and exit");
         QMessageBox::critical(&mainWindow, QStringLiteral("配置加载失败"),
                               QStringLiteral("未能在 %1 找到或解析 markets.xml 。程序将退出。").arg(cfgPath));
         return 0;
     }
+    debugLog("Populating tree...");
     cfg.populateTree(tree);
+    debugLog("Tree populated");
 
     // ============================================================
     // Welcome widget (shown initially on the right side)
@@ -200,14 +271,22 @@ int main(int argc, char *argv[])
     // ================================================================
     // LuaScriptEngine 初始化
     // ================================================================
+    debugLog("STEP: Creating LuaScriptEngine...");
     LuaScriptEngine *luaEngine = new LuaScriptEngine(&mainWindow);
+    debugLog("STEP: LuaScriptEngine created, setting KLineWidget...");
     luaEngine->setKLineWidget(k);
-    if (!luaEngine->initialize()) {
+    debugLog("STEP: Initializing LuaScriptEngine...");
+    bool luaInitOk = luaEngine->initialize();
+    debugLog2("STEP: initialize() returned", luaInitOk ? "true" : "false");
+    if (!luaInitOk) {
         logText->append("LuaScriptEngine initialize failed: " + luaEngine->lastError());
+        debugLog2("LuaScriptEngine initialize failed", luaEngine->lastError());
     } else {
         logText->append("LuaScriptEngine initialized");
+        debugLog("LuaScriptEngine initialized OK");
     }
 
+    debugLog("STEP: Connecting script signals...");
     // 连接脚本日志/错误到日志输出
     QObject::connect(luaEngine, &LuaScriptEngine::scriptLog,
         logText, [logText](const QString &msg) {
@@ -218,9 +297,12 @@ int main(int argc, char *argv[])
         logText->append(QStringLiteral("[Lua Error] %1: %2").arg(scriptName, error));
     });
 
+    debugLog("STEP: registerKLineWidget...");
     // 注册主 KLineWidget 到引擎
     luaEngine->registerKLineWidget(k);
+    debugLog("STEP: registerKLineWidget done");
 
+    debugLog("STEP: Connecting candleUpdated signal...");
     // 连接 K 线更新信号到脚本引擎（通过 requestBarEvent 实现跨线程安全调度）
     QObject::connect(k, &KLineWidget::candleUpdated, k,
         [k, luaEngine](const Candle &candle, bool isNewBar) {
@@ -229,18 +311,25 @@ int main(int argc, char *argv[])
         if (sym.isEmpty() || tf <= 0) return;
         luaEngine->requestBarEvent(sym, tf, candle, isNewBar);
     });
+    debugLog("STEP: candleUpdated signal connected");
 
+    debugLog("STEP: Creating DataLoader...");
     // find KLineWidget and create DataLoader
     KLineWidget *klineWidget = k;  // 使用上面已创建的 KLineWidget
     DataLoader *loader = nullptr;
     if (klineWidget) {
+        debugLog("STEP: klineWidget is not null, creating DataLoader...");
         loader = new DataLoader(klineWidget, &mainWindow);
+        debugLog("STEP: DataLoader created, starting RPC client...");
         // 启动 RPC 客户端
         if (loader->startRpcClient()) {
             logText->append(QStringLiteral("KBarRPC client initialized, waiting for data request... (127.0.0.1:9888)"));
+            debugLog("KBarRPC client started successfully");
         } else {
             logText->append(QStringLiteral("KBarRPC client failed to start"));
+            debugLog("KBarRPC client FAILED to start");
         }
+        debugLog("STEP: RPC client start done");
 
         // ================================================================
         // 连接 DataLoader 信号，实现 Loading 覆盖层和推送数据更新
@@ -265,26 +354,26 @@ int main(int argc, char *argv[])
             bool scriptLoaded = false;
 
             // 遍历 shapes（先从当前 KLineWidget，再从引擎磁盘缓存），加载关联的脚本
-            auto shapes = klineWidget->shapes();
+            QVector<QSharedPointer<Shape>> shapes = klineWidget->shapes();
             if (shapes.isEmpty()) {
                 // 检查引擎的磁盘缓存（自动加载的场景，shapes 在缓存中不在 KLineWidget 上）
                 QString key = symbol + "|" + QString::number(tf);
                 for (const auto &sp : luaEngine->shapesDiskCache(key)) {
                     if (!sp->scriptName.isEmpty())
-                        shapes.append(*sp);
+                        shapes.append(sp);
                 }
             }
             for (const auto &shape : shapes) {
-                if (!shape.scriptName.isEmpty()) {
+                if (!shape->scriptName.isEmpty()) {
                     // 提取文件名（去掉路径），例如 "ma_cross.lua" -> "ma_cross"
-                    QString scriptFile = shape.scriptName;
+                    QString scriptFile = shape->scriptName;
                     if (scriptFile.endsWith(".lua", Qt::CaseInsensitive)) {
                         scriptFile = scriptFile.left(scriptFile.length() - 4); // 去掉 .lua 后缀
                     }
                     ScriptBinding binding;
                     binding.symbol = symbol;
                     binding.timeframe = tf;
-                    luaEngine->loadScript(scriptFile, shape.scriptParams, binding);
+                    luaEngine->loadScript(scriptFile, shape->scriptParams, binding);
                     scriptLoaded = true;
                 }
             }
@@ -469,60 +558,70 @@ int main(int argc, char *argv[])
     // ================================================================
     QObject::connect(k, &KLineWidget::shapeDoubleClicked, k,
         [k, luaEngine, logText](int index) {
-        if (index < 0 || index >= k->shapes().size()) return;
-        auto &shapes = const_cast<QVector<KLineWidget::Shape>&>(k->shapes());
+        // 使用引用，这样 setShapes 时能写回
+        auto shapes = const_cast<QVector<QSharedPointer<Shape>>&>(k->shapes());
+        if (index < 0 || index >= shapes.size()) return;
         auto &s = shapes[index];
 
         // ★ 如果是子 shape（ownerShapeId > 0），跳转到父 shape 的对话框
         int targetIndex = index;
-        if (s.ownerShapeId > 0) {
+        if (s->ownerShapeId > 0) {
             for (int i = 0; i < shapes.size(); ++i) {
-                if (shapes[i].id == s.ownerShapeId) {
+                if (shapes[i]->id == s->ownerShapeId) {
                     targetIndex = i;
                     break;
                 }
             }
             if (targetIndex == index) return; // 找不到父 shape，不弹窗
         }
-        auto &target = shapes[targetIndex];
+        auto target = shapes[targetIndex];
 
         ShapeDialog dlg(k);
-        dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(target.name));
+        dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(target->name));
 
         // 基本信息
         QString info;
-        info += QStringLiteral("类型: %1\n").arg(target.type);
+        QString typeStr;
+        switch (target->type()) {
+        case ShapeType::Line: typeStr = "水平线"; break;
+        case ShapeType::Trend: typeStr = "趋势线"; break;
+        case ShapeType::UpTriangle: typeStr = "上三角"; break;
+        case ShapeType::DownTriangle: typeStr = "下三角"; break;
+        case ShapeType::Fixed: typeStr = "文本标注"; break;
+        default: typeStr = "未知"; break;
+        }
+        info += QStringLiteral("类型: %1\n").arg(typeStr);
         info += QStringLiteral("坐标: (%1, %2) → (%3, %4)")
-            .arg(target.x1).arg(target.y1, 0, 'f', 2)
-            .arg(target.x2).arg(target.y2, 0, 'f', 2);
-        if (target.tradePrice != 0.0)
-            info += QStringLiteral("\n成交价: %1").arg(target.tradePrice, 0, 'f', 2);
-        if (target.profit != 0.0)
-            info += QStringLiteral("\n盈亏: %1%2").arg(target.profit >= 0 ? "+" : "").arg(target.profit, 0, 'f', 2);
+            .arg(target->x1).arg(target->y1, 0, 'f', 2)
+            .arg(target->x2).arg(target->y2, 0, 'f', 2);
+        if (target->tradePrice != 0.0)
+            info += QStringLiteral("\n成交价: %1").arg(target->tradePrice, 0, 'f', 2);
+        if (target->profit != 0.0)
+            info += QStringLiteral("\n盈亏: %1%2").arg(target->profit >= 0 ? "+" : "").arg(target->profit, 0, 'f', 2);
         dlg.setShapeInfo(info);
 
-        dlg.setShapeName(target.name);
-        dlg.setShapeColor(target.color.isValid() ? target.color : Qt::white);
-        dlg.setShapeText(target.text);
+        dlg.setShapeName(target->name);
+        dlg.setShapeColor(target->color.isValid() ? target->color : Qt::white);
+        dlg.setShapeText(target->text);
 
         // 脚本列表
         QString scriptsDir = AppPaths::resolveDataDir("data/scripts");
         QDir dir(scriptsDir);
         QStringList files = dir.entryList({"*.lua"}, QDir::Files);
         dlg.setScriptList(files);
-        dlg.setScriptName(target.scriptName);
+        dlg.setScriptName(target->scriptName);
 
         // 脚本说明
         {
-            QString curScript = target.scriptName;
+            QString curScript = target->scriptName;
             if (curScript.endsWith(".lua", Qt::CaseInsensitive))
                 curScript = curScript.left(curScript.length() - 4);
             dlg.setScriptDescription(luaEngine->getScriptDescription(curScript));
         }
 
         // 参数
-        if (!target.scriptParams.isEmpty()) {
-            QJsonObject jo = QJsonDocument::fromJson(target.scriptParams.toUtf8()).object();
+        if (!target->scriptParams.isEmpty()) {
+            QJsonObject jo = QJsonDocument::fromJson(target->scriptParams.toUtf8()).object();
             int pi = 0;
             for (auto it = jo.begin(); it != jo.end() && pi < 3; ++it, ++pi) {
                 dlg.setParam(pi, it.key(), QString::number((*it).toDouble()));
@@ -530,13 +629,13 @@ int main(int argc, char *argv[])
         }
 
         if (dlg.exec() == QDialog::Accepted) {
-            target.name = dlg.getShapeName();
-            target.color = dlg.getShapeColor();
-            target.text = dlg.getShapeText();
+            target->name = dlg.getShapeName();
+            target->color = dlg.getShapeColor();
+            target->text = dlg.getShapeText();
 
             // 如果之前关联了脚本，先卸载旧脚本
-            if (!target.scriptName.isEmpty()) {
-                QString oldFile = target.scriptName;
+            if (!target->scriptName.isEmpty()) {
+                QString oldFile = target->scriptName;
                 if (oldFile.endsWith(".lua", Qt::CaseInsensitive))
                     oldFile = oldFile.left(oldFile.length() - 4);
                 luaEngine->unloadScript(oldFile);
@@ -552,8 +651,8 @@ int main(int argc, char *argv[])
                     paramList << QStringLiteral("\"%1\":%2").arg(n, v);
             }
             QString newParams = "{" + paramList.join(",") + "}";
-            target.scriptName = newScript;
-            target.scriptParams = newParams;
+            target->scriptName = newScript;
+            target->scriptParams = newParams;
             k->setShapes(shapes);
             // ★ 立即保存到磁盘！避免切换周期后脚本关联丢失
             k->saveShapes();

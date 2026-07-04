@@ -2,6 +2,11 @@
 #include "klinewidget.h"
 #include "indicatorcalc.h"
 #include "apppaths.h"
+#include "shapes/shape.h"
+#include "shapes/lineshape.h"
+#include "shapes/trendshape.h"
+#include "shapes/triangleshape.h"
+#include "shapes/fixedshape.h"
 
 #include <QFile>
 #include <QFileInfo>
@@ -328,7 +333,7 @@ static int lua_core_shape_add(lua_State *L)
         return 1;
     }
 
-    const char *typeStr = luaL_checkstring(L, 1); // "Line", "Trend", "GestureUp", "Text", etc.
+    const char *typeStr = luaL_checkstring(L, 1); // "Line", "Trend", "UpTriangle", "DownTriangle", "Text", etc.
     int candleIdx1 = (int)luaL_checkinteger(L, 2);
     double price1 = luaL_checknumber(L, 3);
     int candleIdx2 = (int)luaL_checkinteger(L, 4);
@@ -336,27 +341,51 @@ static int lua_core_shape_add(lua_State *L)
     const char *name = luaL_optstring(L, 6, "");
 
     // Map type string to ShapeType
-    using ShapeType = KLineWidget::ShapeType;
-    ShapeType st = ShapeType::Shape_Line; // default
-    if (strcmp(typeStr, "Line") == 0 || strcmp(typeStr, "line") == 0) st = ShapeType::Shape_Line;
-    else if (strcmp(typeStr, "Trend") == 0 || strcmp(typeStr, "trend") == 0) st = ShapeType::Shape_Trend;
-    else if (strcmp(typeStr, "UpTriangle") == 0) st = ShapeType::Shape_UpTriangle;
-    else if (strcmp(typeStr, "DownTriangle") == 0) st = ShapeType::Shape_DownTriangle;
-    else if (strcmp(typeStr, "Note") == 0) st = ShapeType::Shape_UpTriangle;
+    ShapeType st = ShapeType::Line; // default
+    if (strcmp(typeStr, "Line") == 0 || strcmp(typeStr, "line") == 0) st = ShapeType::Line;
+    else if (strcmp(typeStr, "Trend") == 0 || strcmp(typeStr, "trend") == 0) st = ShapeType::Trend;
+    else if (strcmp(typeStr, "UpTriangle") == 0) st = ShapeType::UpTriangle;
+    else if (strcmp(typeStr, "DownTriangle") == 0) st = ShapeType::DownTriangle;
+    else if (strcmp(typeStr, "Text") == 0) st = ShapeType::Text;
+    else if (strcmp(typeStr, "Note") == 0) st = ShapeType::Text; // backward compat
 
-    KLineWidget::Shape s;
-    s.type = st;
-    s.x1 = candleIdx1;
-    s.y1 = price1;
-    s.x2 = candleIdx2;
-    s.y2 = price2;
-    s.name = QString::fromUtf8(name);
-    s.color = QColor(Qt::white);
-    s.fromScript = true; // 脚本创建的 shape 不保存到磁盘
+    // 创建对应的子类对象
+    QSharedPointer<Shape> s;
+    switch (st) {
+    case ShapeType::Line:
+        s = QSharedPointer<LineShape>::create();
+        break;
+    case ShapeType::Trend:
+        s = QSharedPointer<TrendShape>::create();
+        break;
+    case ShapeType::UpTriangle:
+        s = QSharedPointer<TriangleShape>::create();
+        qSharedPointerCast<TriangleShape>(s)->up = true;
+        break;
+    case ShapeType::DownTriangle:
+        s = QSharedPointer<TriangleShape>::create();
+        qSharedPointerCast<TriangleShape>(s)->up = false;
+        break;
+    case ShapeType::Text:
+        s = QSharedPointer<FixedShape>::create();
+        s->setAttachment(Attachment::Fixed);
+        s->setType(ShapeType::Fixed);
+        break;
+    default:
+        s = QSharedPointer<LineShape>::create();
+        break;
+    }
+    s->x1 = candleIdx1;
+    s->y1 = price1;
+    s->x2 = candleIdx2;
+    s->y2 = price2;
+    s->name = QString::fromUtf8(name);
+    s->color = QColor(Qt::white);
+    s->fromScript = true; // 脚本创建的 shape 不保存到磁盘
     // Set scriptName from current script context
     LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     if (engine) {
-        s.scriptName = engine->currentScriptName();
+        s->scriptName = engine->currentScriptName();
     }
     int newId = kw->addShape(s);
 
@@ -389,22 +418,22 @@ static int lua_core_get_shape_price(lua_State *L)
     }
 
     QString sn = QString::fromUtf8(scriptName);
-    const auto shapes = kw->shapes();
-    for (const auto &s : shapes) {
-        if (s.scriptName == sn || s.scriptName == sn + ".lua") {
+    const auto &shapes = kw->shapes();
+    for (const auto &sp : shapes) {
+        if (sp->scriptName == sn || sp->scriptName == sn + ".lua") {
             // Trend 线 + 提供了 K 线索引：两点之间线性插值
-            if (s.type == KLineWidget::Shape_Trend && candleIdx >= 0) {
-                int dx = s.x2 - s.x1;
+            if (sp->type() == ShapeType::Trend && candleIdx >= 0) {
+                int dx = int(sp->x2 - sp->x1);
                 if (dx == 0) {
-                    lua_pushnumber(L, s.y1);
+                    lua_pushnumber(L, sp->y1);
                 } else {
-                    double t = double(candleIdx - s.x1) / double(dx);
-                    double price = s.y1 + (s.y2 - s.y1) * t;
+                    double t = double(candleIdx - sp->x1) / double(dx);
+                    double price = sp->y1 + (sp->y2 - sp->y1) * t;
                     lua_pushnumber(L, price);
                 }
             } else {
                 // 水平线（Line）和其他类型：返回 price1 固定值
-                lua_pushnumber(L, s.y1);
+                lua_pushnumber(L, sp->y1);
             }
             return 1;
         }
@@ -435,27 +464,27 @@ static int lua_core_get_line_price(lua_State *L)
     }
 
     QString sn = QString::fromUtf8(scriptName);
-    const auto shapes = kw->shapes();
-    for (const auto &s : shapes) {
-        if (s.scriptName != sn && s.scriptName != sn + ".lua")
+    const auto &shapes = kw->shapes();
+    for (const auto &sp : shapes) {
+        if (sp->scriptName != sn && sp->scriptName != sn + ".lua")
             continue;
 
         // Trend 线：两点之间线性插值
-        if (s.type == KLineWidget::Shape_Trend) {
-            int dx = s.x2 - s.x1;
+        if (sp->type() == ShapeType::Trend) {
+            int dx = int(sp->x2 - sp->x1);
             if (dx == 0) {
                 // 同一点，直接返回 price1
-                lua_pushnumber(L, s.y1);
+                lua_pushnumber(L, sp->y1);
             } else {
-                double t = double(candleIdx - s.x1) / double(dx);
-                double price = s.y1 + (s.y2 - s.y1) * t;
+                double t = double(candleIdx - sp->x1) / double(dx);
+                double price = sp->y1 + (sp->y2 - sp->y1) * t;
                 lua_pushnumber(L, price);
             }
             return 1;
         }
 
         // Line（水平线）和其他：返回固定价格 price1
-        lua_pushnumber(L, s.y1);
+        lua_pushnumber(L, sp->y1);
         return 1;
     }
 
@@ -470,9 +499,9 @@ static int lua_core_shape_remove(lua_State *L)
     if (!kw) return 0;
 
     int id = (int)luaL_checkinteger(L, 1);
-    QVector<KLineWidget::Shape> shapes = kw->shapes();
+    QVector<QSharedPointer<Shape>> shapes = kw->shapes();
     shapes.erase(std::remove_if(shapes.begin(), shapes.end(),
-                                [id](const KLineWidget::Shape &s) { return s.id == id; }),
+                                [id](const QSharedPointer<Shape> &sp) { return sp->id == id; }),
                  shapes.end());
     kw->setShapes(shapes);
     return 0;
@@ -490,19 +519,19 @@ static int lua_core_shape_add_fixed(lua_State *L)
     const char *text = luaL_optstring(L, 4, "");
     const char *name = luaL_optstring(L, 5, "");
 
-    KLineWidget::Shape s;
-    s.type = KLineWidget::Shape_Fixed;
-    s.attachment = KLineWidget::Attach_Fixed;
-    s.x1 = qBound(0.0, normX, 1.0);
-    s.y1 = qBound(0.0, normY, 1.0);
-    s.text = QString::fromUtf8(text);
-    s.name = QString::fromUtf8(name);
-    s.color = QColor(255, 200, 100);
-    s.fromScript = true; // 脚本创建的 shape 不保存到磁盘
+    auto s = QSharedPointer<FixedShape>::create();
+    s->setType(ShapeType::Fixed);
+    s->setAttachment(Attachment::Fixed);
+    s->x1 = qBound(0.0, normX, 1.0);
+    s->y1 = qBound(0.0, normY, 1.0);
+    s->text = QString::fromUtf8(text);
+    s->name = QString::fromUtf8(name);
+    s->color = QColor(255, 200, 100);
+    s->fromScript = true; // 脚本创建的 shape 不保存到磁盘
     // Set scriptName from current script context
     LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     if (engine) {
-        s.scriptName = engine->currentScriptName();
+        s->scriptName = engine->currentScriptName();
     }
     int newId = kw->addShape(s);
     lua_pushinteger(L, newId);
@@ -605,17 +634,17 @@ static int lua_core_child_select(lua_State *L)
     KLineWidget *kw = getKLineWidget(L);
     if (!kw) return 0;
 
-    QVector<KLineWidget::Shape> shapes = kw->shapes();
+    QVector<QSharedPointer<Shape>> shapes = kw->shapes();
 
     if (lua_gettop(L) == 0) {
         // child_clear: deselect all
-        for (auto &s : shapes) s.selected = false;
+        for (auto &sp : shapes) sp->selected = false;
         kw->setShapes(shapes);
         return 0;
     }
     int id = (int)luaL_checkinteger(L, 1);
     for (int i = 0; i < shapes.size(); ++i) {
-        shapes[i].selected = (shapes[i].id == id);
+        shapes[i]->selected = (shapes[i]->id == id);
     }
     kw->setShapes(shapes);
     return 0;
@@ -927,9 +956,9 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
             KLineWidget *kw = resolveKLineWidget();
             if (kw) {
                 const auto &shapes = kw->shapes();
-                for (const auto &s : shapes) {
-                    if (s.scriptName == scriptName || s.scriptName == scriptName + ".lua") {
-                        m_currentParentShapeId = s.id;
+                for (const auto &sp : shapes) {
+                    if (sp->scriptName == scriptName || sp->scriptName == scriptName + ".lua") {
+                        m_currentParentShapeId = sp->id;
                         break;
                     }
                 }
@@ -1085,34 +1114,17 @@ void LuaScriptEngine::reloadShapesForSymbol(const QString &symbol, int timeframe
     f.close();
     if (!doc.isObject()) return;
     QJsonArray arr = doc.object()["shapes"].toArray();
-    QVector<QSharedPointer<KLineWidget::Shape>> shapes;
-    for (const auto &val : arr) {
-        QJsonObject obj = val.toObject();
-        auto sp = QSharedPointer<KLineWidget::Shape>::create();
-        sp->id = obj["id"].toInt();
-        sp->type = static_cast<KLineWidget::ShapeType>(obj["type"].toInt());
-        sp->attachment = static_cast<KLineWidget::ShapeAttachment>(obj["attachment"].toInt(0));
-        sp->name = obj["name"].toString();
-        sp->text = obj["text"].toString();
-        sp->color = QColor(obj["color"].toString("#FFFFFF"));
-        if (sp->attachment == KLineWidget::Attach_Fixed) {
-            sp->x1 = obj["normX"].toDouble(0.5);
-            sp->y1 = obj["normY"].toDouble(0.5);
-        } else {
-            sp->x1 = obj["candleIdx1"].toDouble();
-            sp->y1 = obj["price1"].toDouble();
-            sp->x2 = obj["candleIdx2"].toDouble();
-            sp->y2 = obj["price2"].toDouble();
+    QVector<QSharedPointer<Shape>> shapes;
+        for (const auto &val : arr) {
+            QJsonObject obj = val.toObject();
+            auto sp = Shape::createFromJson(obj);
+            if (!sp) continue; // 未知类型跳过
+            sp->fromScript = false; // 从磁盘加载的 shape 不是脚本创建的
+            shapes.append(sp);
+            QString sn = sp->scriptName;
+            if (sn.endsWith(".lua", Qt::CaseInsensitive)) sn = sn.left(sn.length() - 4);
+            if (!sn.isEmpty()) m_scriptShapesIndex[sn].append(sp);
         }
-        sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
-        sp->scriptName = obj["scriptName"].toString();
-        sp->scriptParams = obj["scriptParams"].toString();
-        sp->fromScript = false; // 从磁盘加载的 shape 不是脚本创建的
-        shapes.append(sp);
-        QString sn = sp->scriptName;
-        if (sn.endsWith(".lua", Qt::CaseInsensitive)) sn = sn.left(sn.length() - 4);
-        if (!sn.isEmpty()) m_scriptShapesIndex[sn].append(sp);
-    }
     m_shapesDiskCache[key] = shapes;
     // 重建 m_symbolScriptMap
     m_symbolScriptMap.clear();
@@ -1153,31 +1165,30 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
     }
     emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape enter: parentId=%1 type=%2 x=%3 y=%4 text=%5 klineBound=%6")
         .arg(parentShapeId).arg(type).arg(x).arg(y).arg(text).arg(klineBound));
-    KLineWidget::Shape s;
-    s.ownerShapeId = parentShapeId;
-    s.text = text;
-    s.color = QColor(255, 200, 100);
-    s.fromScript = true; // 脚本创建的子 shape 不保存到磁盘
-    // movable 已移除，拖动行为由 ShapeType 通过 canDrag() 决定：
-    //   Triangle → 不可拖动，Fixed → 可拖动
 
+    QSharedPointer<Shape> s;
     if (klineBound) {
         // Attach_KLineBound: 数据坐标 (x=candleIndex, y=price)，跟随 K 线滚动
-        s.attachment = KLineWidget::Attach_KLineBound;
-        s.x1 = x;  // candleIndex
-        s.y1 = y;  // price
-        // 根据 type 设置三角形类型
-        if (type == "TriangleDown")
-            s.type = KLineWidget::Shape_DownTriangle;
-        else
-            s.type = KLineWidget::Shape_UpTriangle; // "TriangleUp" 或其他默认向上
+        auto ts = QSharedPointer<TriangleShape>::create();
+        ts->up = (type != "TriangleDown");
+        ts->setType(ShapeType::UpTriangle); // 基类 type
+        ts->setAttachment(Attachment::KLineBound);
+        ts->x1 = x;  // candleIndex
+        ts->y1 = y;  // price
+        s = ts;
     } else {
         // Attach_Fixed: 归一化坐标 (x=normX, y=normY)，屏幕固定
-        s.attachment = KLineWidget::Attach_Fixed;
-        s.x1 = x;  // normX
-        s.y1 = y;  // normY
-        s.type = KLineWidget::Shape_Fixed;
+        auto fs = QSharedPointer<FixedShape>::create();
+        fs->setType(ShapeType::Fixed);
+        fs->setAttachment(Attachment::Fixed);
+        fs->x1 = x;  // normX
+        fs->y1 = y;  // normY
+        s = fs;
     }
+    s->ownerShapeId = parentShapeId;
+    s->text = text;
+    s->color = QColor(255, 200, 100);
+    s->fromScript = true; // 脚本创建的子 shape 不保存到磁盘
 
     int newId = kw->addShape(s);
     emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape result: newId=%1 (parentId=%2 type=%3)")
@@ -1189,10 +1200,10 @@ bool LuaScriptEngine::removeChildShape(int childShapeId)
 {
     KLineWidget *kw = klineWidget();
     if (!kw) return false;
-    QVector<KLineWidget::Shape> shapes = kw->shapes();
+    QVector<QSharedPointer<Shape>> shapes = kw->shapes();
     int before = shapes.size();
     shapes.erase(std::remove_if(shapes.begin(), shapes.end(),
-        [childShapeId](const KLineWidget::Shape &s) { return s.id == childShapeId; }),
+        [childShapeId](const QSharedPointer<Shape> &sp) { return sp->id == childShapeId; }),
         shapes.end());
     if (shapes.size() == before) return false;
     kw->setShapes(shapes);
@@ -1204,9 +1215,9 @@ QVector<int> LuaScriptEngine::childShapeIds(int parentShapeId) const
     KLineWidget *kw = klineWidget();
     if (!kw) return {};
     QVector<int> ids;
-    for (const auto &s : kw->shapes()) {
-        if (s.ownerShapeId == parentShapeId)
-            ids.append(s.id);
+    for (const auto &sp : kw->shapes()) {
+        if (sp->ownerShapeId == parentShapeId)
+            ids.append(sp->id);
     }
     return ids;
 }
@@ -1329,29 +1340,12 @@ void LuaScriptEngine::loadShapesFromDisk()
         QJsonObject root = doc.object();
         QJsonArray arr = root["shapes"].toArray();
         QString key = symbol + "|" + QString::number(tf);
-        QVector<QSharedPointer<KLineWidget::Shape>> shapes;
+        QVector<QSharedPointer<Shape>> shapes;
 
         for (const auto &val : arr) {
             QJsonObject obj = val.toObject();
-            auto sp = QSharedPointer<KLineWidget::Shape>::create();
-            sp->id = obj["id"].toInt();
-            sp->type = static_cast<KLineWidget::ShapeType>(obj["type"].toInt());
-            sp->attachment = static_cast<KLineWidget::ShapeAttachment>(obj["attachment"].toInt(0));
-            sp->name = obj["name"].toString();
-            sp->text = obj["text"].toString();
-            sp->color = QColor(obj["color"].toString("#FFFFFF"));
-            if (sp->attachment == KLineWidget::Attach_Fixed) {
-                sp->x1 = obj["normX"].toDouble(0.5);
-                sp->y1 = obj["normY"].toDouble(0.5);
-            } else {
-                sp->x1 = obj["candleIdx1"].toDouble();
-                sp->y1 = obj["price1"].toDouble();
-                sp->x2 = obj["candleIdx2"].toDouble();
-                sp->y2 = obj["price2"].toDouble();
-            }
-            sp->ownerShapeId = obj["ownerShapeId"].toInt(0);
-            sp->scriptName = obj["scriptName"].toString();
-            sp->scriptParams = obj["scriptParams"].toString();
+            auto sp = Shape::createFromJson(obj);
+            if (!sp) continue; // 未知类型跳过
             shapes.append(sp);
 
             QString sn = sp->scriptName;

@@ -65,7 +65,14 @@ set(PROJECT_SOURCES
 
     drawtoolbar.h
     shapedialog.cpp shapedialog.h shapedialog.ui
-    
+
+    # Shapes (独立子类体系)
+    shapes/shape.cpp shapes/shape.h
+    shapes/lineshape.cpp shapes/lineshape.h
+    shapes/trendshape.cpp shapes/trendshape.h
+    shapes/triangleshape.cpp shapes/triangleshape.h
+    shapes/fixedshape.cpp shapes/fixedshape.h
+
     # NetCore RPC Client
     mt4rpc/KBarRpcService.cpp mt4rpc/KBarRpcService.h
     mt4rpc/KBarRpcProtocol.h

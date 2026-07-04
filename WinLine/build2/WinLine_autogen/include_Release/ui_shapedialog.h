@@ -11,12 +11,15 @@
 
 #include <QtCore/QVariant>
 #include <QtWidgets/QApplication>
+#include <QtWidgets/QComboBox>
 #include <QtWidgets/QDialog>
+#include <QtWidgets/QGroupBox>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QSpacerItem>
+#include <QtWidgets/QTextEdit>
 #include <QtWidgets/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
@@ -34,6 +37,31 @@ public:
     QLabel *colorPreview;
     QPushButton *colorButton;
     QSpacerItem *colorSpacer;
+    QGroupBox *infoGroup;
+    QVBoxLayout *infoLayout;
+    QLabel *infoLabel;
+    QVBoxLayout *textLayout;
+    QLabel *textLabel;
+    QTextEdit *textEdit;
+    QGroupBox *scriptGroup;
+    QVBoxLayout *scriptLayout;
+    QHBoxLayout *scriptRow;
+    QLabel *scriptLabel;
+    QComboBox *scriptCombo;
+    QLabel *descLabel;
+    QTextEdit *descView;
+    QHBoxLayout *p1Row;
+    QLabel *p1Label;
+    QLineEdit *p1Name;
+    QLineEdit *p1Value;
+    QHBoxLayout *p2Row;
+    QLabel *p2Label;
+    QLineEdit *p2Name;
+    QLineEdit *p2Value;
+    QHBoxLayout *p3Row;
+    QLabel *p3Label;
+    QLineEdit *p3Name;
+    QLineEdit *p3Value;
     QSpacerItem *verticalSpacer;
     QHBoxLayout *buttonLayout;
     QSpacerItem *buttonSpacer;
@@ -44,7 +72,7 @@ public:
     {
         if (ShapeDialog->objectName().isEmpty())
             ShapeDialog->setObjectName("ShapeDialog");
-        ShapeDialog->resize(500, 250);
+        ShapeDialog->resize(500, 580);
         mainLayout = new QVBoxLayout(ShapeDialog);
         mainLayout->setSpacing(15);
         mainLayout->setObjectName("mainLayout");
@@ -100,6 +128,133 @@ public:
 
 
         mainLayout->addLayout(colorLayout);
+
+        infoGroup = new QGroupBox(ShapeDialog);
+        infoGroup->setObjectName("infoGroup");
+        infoLayout = new QVBoxLayout(infoGroup);
+        infoLayout->setObjectName("infoLayout");
+        infoLabel = new QLabel(infoGroup);
+        infoLabel->setObjectName("infoLabel");
+        infoLabel->setWordWrap(true);
+
+        infoLayout->addWidget(infoLabel);
+
+
+        mainLayout->addWidget(infoGroup);
+
+        textLayout = new QVBoxLayout();
+        textLayout->setObjectName("textLayout");
+        textLabel = new QLabel(ShapeDialog);
+        textLabel->setObjectName("textLabel");
+
+        textLayout->addWidget(textLabel);
+
+        textEdit = new QTextEdit(ShapeDialog);
+        textEdit->setObjectName("textEdit");
+        textEdit->setMaximumHeight(60);
+
+        textLayout->addWidget(textEdit);
+
+
+        mainLayout->addLayout(textLayout);
+
+        scriptGroup = new QGroupBox(ShapeDialog);
+        scriptGroup->setObjectName("scriptGroup");
+        scriptLayout = new QVBoxLayout(scriptGroup);
+        scriptLayout->setObjectName("scriptLayout");
+        scriptRow = new QHBoxLayout();
+        scriptRow->setObjectName("scriptRow");
+        scriptLabel = new QLabel(scriptGroup);
+        scriptLabel->setObjectName("scriptLabel");
+
+        scriptRow->addWidget(scriptLabel);
+
+        scriptCombo = new QComboBox(scriptGroup);
+        scriptCombo->setObjectName("scriptCombo");
+        scriptCombo->setEditable(true);
+
+        scriptRow->addWidget(scriptCombo);
+
+
+        scriptLayout->addLayout(scriptRow);
+
+        descLabel = new QLabel(scriptGroup);
+        descLabel->setObjectName("descLabel");
+
+        scriptLayout->addWidget(descLabel);
+
+        descView = new QTextEdit(scriptGroup);
+        descView->setObjectName("descView");
+        descView->setReadOnly(true);
+        descView->setMaximumHeight(80);
+
+        scriptLayout->addWidget(descView);
+
+        p1Row = new QHBoxLayout();
+        p1Row->setObjectName("p1Row");
+        p1Label = new QLabel(scriptGroup);
+        p1Label->setObjectName("p1Label");
+        p1Label->setFixedWidth(55);
+
+        p1Row->addWidget(p1Label);
+
+        p1Name = new QLineEdit(scriptGroup);
+        p1Name->setObjectName("p1Name");
+
+        p1Row->addWidget(p1Name);
+
+        p1Value = new QLineEdit(scriptGroup);
+        p1Value->setObjectName("p1Value");
+
+        p1Row->addWidget(p1Value);
+
+
+        scriptLayout->addLayout(p1Row);
+
+        p2Row = new QHBoxLayout();
+        p2Row->setObjectName("p2Row");
+        p2Label = new QLabel(scriptGroup);
+        p2Label->setObjectName("p2Label");
+        p2Label->setFixedWidth(55);
+
+        p2Row->addWidget(p2Label);
+
+        p2Name = new QLineEdit(scriptGroup);
+        p2Name->setObjectName("p2Name");
+
+        p2Row->addWidget(p2Name);
+
+        p2Value = new QLineEdit(scriptGroup);
+        p2Value->setObjectName("p2Value");
+
+        p2Row->addWidget(p2Value);
+
+
+        scriptLayout->addLayout(p2Row);
+
+        p3Row = new QHBoxLayout();
+        p3Row->setObjectName("p3Row");
+        p3Label = new QLabel(scriptGroup);
+        p3Label->setObjectName("p3Label");
+        p3Label->setFixedWidth(55);
+
+        p3Row->addWidget(p3Label);
+
+        p3Name = new QLineEdit(scriptGroup);
+        p3Name->setObjectName("p3Name");
+
+        p3Row->addWidget(p3Name);
+
+        p3Value = new QLineEdit(scriptGroup);
+        p3Value->setObjectName("p3Value");
+
+        p3Row->addWidget(p3Value);
+
+
+        scriptLayout->addLayout(p3Row);
+
+
+        mainLayout->addWidget(scriptGroup);
 
         verticalSpacer = new QSpacerItem(20, 40, QSizePolicy::Policy::Minimum, QSizePolicy::Policy::Expanding);
 
@@ -189,6 +344,25 @@ public:
 "border-radius: 4px;\n"
 "background-color: white;", nullptr));
         colorButton->setText(QCoreApplication::translate("ShapeDialog", "Choose Color", nullptr));
+        infoGroup->setTitle(QCoreApplication::translate("ShapeDialog", "\345\237\272\346\234\254\344\277\241\346\201\257", nullptr));
+        infoLabel->setStyleSheet(QCoreApplication::translate("ShapeDialog", "color: #666; font-size: 11px; font-weight: normal;", nullptr));
+        infoLabel->setText(QString());
+        textLabel->setText(QCoreApplication::translate("ShapeDialog", "\346\226\207\346\234\254\345\206\205\345\256\271:", nullptr));
+        textEdit->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\350\276\223\345\205\245\350\246\201\346\230\276\347\244\272\347\232\204\346\226\207\345\255\227\342\200\246", nullptr));
+        scriptGroup->setTitle(QCoreApplication::translate("ShapeDialog", "\350\204\232\346\234\254\351\205\215\347\275\256", nullptr));
+        scriptLabel->setText(QCoreApplication::translate("ShapeDialog", "\350\204\232\346\234\254\346\226\207\344\273\266:", nullptr));
+        scriptCombo->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\351\200\211\346\213\251 .lua \350\204\232\346\234\254...", nullptr));
+        descLabel->setText(QCoreApplication::translate("ShapeDialog", "\350\204\232\346\234\254\350\257\264\346\230\216:", nullptr));
+        descView->setStyleSheet(QCoreApplication::translate("ShapeDialog", "background: #f0f0f0; color: #2d7d2d; font-size: 11px;", nullptr));
+        p1Label->setText(QCoreApplication::translate("ShapeDialog", "\345\217\202\346\225\2601:", nullptr));
+        p1Name->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\345\220\215\347\247\260", nullptr));
+        p1Value->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\346\225\260\345\200\274", nullptr));
+        p2Label->setText(QCoreApplication::translate("ShapeDialog", "\345\217\202\346\225\2602:", nullptr));
+        p2Name->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\345\220\215\347\247\260", nullptr));
+        p2Value->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\346\225\260\345\200\274", nullptr));
+        p3Label->setText(QCoreApplication::translate("ShapeDialog", "\345\217\202\346\225\2603:", nullptr));
+        p3Name->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\345\220\215\347\247\260", nullptr));
+        p3Value->setPlaceholderText(QCoreApplication::translate("ShapeDialog", "\346\225\260\345\200\274", nullptr));
         okBtn->setText(QCoreApplication::translate("ShapeDialog", "OK", nullptr));
         cancelBtn->setText(QCoreApplication::translate("ShapeDialog", "Cancel", nullptr));
     } // retranslateUi

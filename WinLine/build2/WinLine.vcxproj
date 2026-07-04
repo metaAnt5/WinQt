@@ -87,34 +87,35 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Debug;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" /FS -Zc:__cplusplus -utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
       <CallingConvention></CallingConvention>
       <ConformanceMode>true</ConformanceMode>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExceptionHandling>
+      </ExceptionHandling>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <FloatingPointModel></FloatingPointModel>
       <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
       <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>Disabled</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <SupportJustMyCode></SupportJustMyCode>
       <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
       <UseFullPaths>false</UseFullPaths>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);QT_CORE_LIB;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="Debug"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;QT_CORE_LIB;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Debug;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;C:\Qt\6.7.2\msvc2019_64\include\QtCore;C:\Qt\6.7.2\msvc2019_64\include;C:\Qt\6.7.2\msvc2019_64\mkspecs\win32-msvc;C:\Qt\6.7.2\msvc2019_64\include\QtWidgets;C:\Qt\6.7.2\msvc2019_64\include\QtGui;C:\Qt\6.7.2\msvc2019_64\include\QtConcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -165,35 +166,36 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Release;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" /FS -Zc:__cplusplus -utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
       <CallingConvention></CallingConvention>
       <ConformanceMode>true</ConformanceMode>
-      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExceptionHandling>
+      </ExceptionHandling>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <FloatingPointModel></FloatingPointModel>
       <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>MaxSpeed</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <SupportJustMyCode></SupportJustMyCode>
       <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
       <UseFullPaths>false</UseFullPaths>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="Release"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <DebugInformationFormat>
       </DebugInformationFormat>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_Release;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;C:\Qt\6.7.2\msvc2019_64\include\QtCore;C:\Qt\6.7.2\msvc2019_64\include;C:\Qt\6.7.2\msvc2019_64\mkspecs\win32-msvc;C:\Qt\6.7.2\msvc2019_64\include\QtWidgets;C:\Qt\6.7.2\msvc2019_64\include\QtGui;C:\Qt\6.7.2\msvc2019_64\include\QtConcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -244,35 +246,36 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_MinSizeRel;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" /FS -Zc:__cplusplus -utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
       <CallingConvention></CallingConvention>
       <ConformanceMode>true</ConformanceMode>
-      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExceptionHandling>
+      </ExceptionHandling>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <FloatingPointModel></FloatingPointModel>
       <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>MinSpace</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <SupportJustMyCode></SupportJustMyCode>
       <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
       <UseFullPaths>false</UseFullPaths>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="MinSizeRel"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <DebugInformationFormat>
       </DebugInformationFormat>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_MinSizeRel;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;C:\Qt\6.7.2\msvc2019_64\include\QtCore;C:\Qt\6.7.2\msvc2019_64\include;C:\Qt\6.7.2\msvc2019_64\mkspecs\win32-msvc;C:\Qt\6.7.2\msvc2019_64\include\QtWidgets;C:\Qt\6.7.2\msvc2019_64\include\QtGui;C:\Qt\6.7.2\msvc2019_64\include\QtConcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -323,34 +326,35 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_RelWithDebInfo;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" -Zc:__cplusplus -utf-8</AdditionalOptions>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtCore" /external:I "C:/Qt/6.7.2/msvc2019_64/include" /external:I "C:/Qt/6.7.2/msvc2019_64/mkspecs/win32-msvc" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtWidgets" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtGui" /external:I "C:/Qt/6.7.2/msvc2019_64/include/QtConcurrent" /FS -Zc:__cplusplus -utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
       <CallingConvention></CallingConvention>
       <ConformanceMode>true</ConformanceMode>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <ExceptionHandling>Sync</ExceptionHandling>
+      <ExceptionHandling>
+      </ExceptionHandling>
       <ExternalWarningLevel>TurnOffAllWarnings</ExternalWarningLevel>
       <FloatingPointModel></FloatingPointModel>
       <ForceConformanceInForLoopScope></ForceConformanceInForLoopScope>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <MinimalRebuild></MinimalRebuild>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <Optimization>MaxSpeed</Optimization>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <RemoveUnreferencedCodeData></RemoveUnreferencedCodeData>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <RuntimeTypeInfo>true</RuntimeTypeInfo>
       <SupportJustMyCode></SupportJustMyCode>
       <TreatWChar_tAsBuiltInType></TreatWChar_tAsBuiltInType>
       <UseFullPaths>false</UseFullPaths>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;WIN32;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR="RelWithDebInfo"</PreprocessorDefinitions>
       <ObjectFileName>$(IntDir)</ObjectFileName>
       <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
     </ClCompile>
     <ResourceCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;NDEBUG;QT_CORE_LIB;QT_NO_DEBUG;_ENABLE_EXTENDED_ALIGNED_STORAGE;WIN64;_WIN64;UNICODE;_UNICODE;QT_WIDGETS_LIB;QT_GUI_LIB;QT_CONCURRENT_LIB;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>F:\stock\WinLineQt\WinQt\WinLine\build2\WinLine_autogen\include_RelWithDebInfo;H:\NetCore;H:\NetCore\asio-asio-1-38-0\include;H:\NetCore\NetCore\3rd\openssl\include;H:\NetCore\NetCore\3rd\lua-5.5\src;C:\Qt\6.7.2\msvc2019_64\include\QtCore;C:\Qt\6.7.2\msvc2019_64\include;C:\Qt\6.7.2\msvc2019_64\mkspecs\win32-msvc;C:\Qt\6.7.2\msvc2019_64\include\QtWidgets;C:\Qt\6.7.2\msvc2019_64\include\QtGui;C:\Qt\6.7.2\msvc2019_64\include\QtConcurrent;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
@@ -581,6 +585,16 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.h" />
     <None Include="F:\stock\WinLineQt\WinQt\WinLine\shapedialog.ui">
     </None>
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\shape.cpp" />
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\shape.h" />
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\lineshape.cpp" />
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\lineshape.h" />
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\trendshape.cpp" />
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\trendshape.h" />
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\triangleshape.cpp" />
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\triangleshape.h" />
+    <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\fixedshape.cpp" />
+    <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\shapes\fixedshape.h" />
     <ClCompile Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.cpp" />
     <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcService.h" />
     <ClInclude Include="F:\stock\WinLineQt\WinQt\WinLine\mt4rpc\KBarRpcProtocol.h" />
