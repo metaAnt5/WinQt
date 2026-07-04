@@ -33,6 +33,7 @@
 #include "dataloader.h"
 #include "simwindow.h"
 #include "drawtoolbar.h"
+#include "shapedialog.h"
 #include "luascriptengine.h"
 #include "settingsdialog.h"
 #include "indicatorcalc.h"
@@ -228,9 +229,6 @@ int main(int argc, char *argv[])
         if (sym.isEmpty() || tf <= 0) return;
         luaEngine->requestBarEvent(sym, tf, candle, isNewBar);
     });
-
-    // ★ loadFinished 信号已负责加载关联脚本，删除重复的 shapesLoaded 处理以避免双重加载
-    // （shapesLoaded 在 loadFinished 之前先触发，但统一在 loadFinished 中处理脚本绑定）
 
     // find KLineWidget and create DataLoader
     KLineWidget *klineWidget = k;  // 使用上面已创建的 KLineWidget
@@ -467,7 +465,7 @@ int main(int argc, char *argv[])
     QObject::connect(k, &KLineWidget::crosshairIndexChanged, macdw, &MacdWidget::setCrosshairIndex);
 
     // ================================================================
-    // 双击 shape -> 弹出完整属性对话框（含文本编辑、脚本配置、注释显示）
+    // 双击 shape -> 弹出完整属性对话框（使用 ShapeDialog）
     // ================================================================
     QObject::connect(k, &KLineWidget::shapeDoubleClicked, k,
         [k, luaEngine, logText](int index) {
@@ -488,184 +486,54 @@ int main(int argc, char *argv[])
         }
         auto &target = shapes[targetIndex];
 
-        // 创建对话框
-        QDialog dlg(k);
+        ShapeDialog dlg(k);
         dlg.setWindowTitle(QStringLiteral("图形属性 - %1").arg(target.name));
-        dlg.setMinimumWidth(400);
-        dlg.setStyleSheet(R"(
-            QGroupBox {
-                font: bold 11px;
-                border: 1px solid #555;
-                border-radius: 4px;
-                margin-top: 12px;
-                padding-top: 8px;
-                color: #ccc;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 6px;
-            }
-            QLineEdit, QComboBox, QTextEdit {
-                padding: 3px 6px;
-                border: 1px solid #555;
-                border-radius: 3px;
-                background: #2d2d2d;
-                color: #e0e0e0;
-            }
-            QTextEdit {
-                background: #252525;
-                selection-background-color: #3a7bc8;
-            }
-            QPushButton {
-                padding: 5px 14px;
-                border: 1px solid #3a7bc8;
-                border-radius: 3px;
-                background: #2d5a88;
-                color: white;
-                font-weight: bold;
-            }
-            QPushButton:hover { background: #3a7bc8; }
-        )");
 
-        QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
-        mainLayout->setSpacing(6);
-
-        // ── 基本信息 ──
-        QGroupBox *infoGroup = new QGroupBox(QStringLiteral("基本信息"));
-        QVBoxLayout *infoLayout = new QVBoxLayout(infoGroup);
-        infoLayout->setSpacing(4);
-
-        QLabel *infoLbl = new QLabel;
-        QString infoText;
-        infoText += QStringLiteral("类型: %1\n").arg(target.type);
-        infoText += QStringLiteral("坐标: (%1, %2) → (%3, %4)")
+        // 基本信息
+        QString info;
+        info += QStringLiteral("类型: %1\n").arg(target.type);
+        info += QStringLiteral("坐标: (%1, %2) → (%3, %4)")
             .arg(target.x1).arg(target.y1, 0, 'f', 2)
             .arg(target.x2).arg(target.y2, 0, 'f', 2);
         if (target.tradePrice != 0.0)
-            infoText += QStringLiteral("\n成交价: %1").arg(target.tradePrice, 0, 'f', 2);
+            info += QStringLiteral("\n成交价: %1").arg(target.tradePrice, 0, 'f', 2);
         if (target.profit != 0.0)
-            infoText += QStringLiteral("\n盈亏: %1%2").arg(target.profit >= 0 ? "+" : "").arg(target.profit, 0, 'f', 2);
-        infoLbl->setText(infoText);
-        infoLbl->setStyleSheet("color: #bbb; font-size: 11px; padding: 4px;");
-        infoLayout->addWidget(infoLbl);
-        mainLayout->addWidget(infoGroup);
+            info += QStringLiteral("\n盈亏: %1%2").arg(target.profit >= 0 ? "+" : "").arg(target.profit, 0, 'f', 2);
+        dlg.setShapeInfo(info);
 
-        // ── 名称 ──
-        QHBoxLayout *nameRow = new QHBoxLayout;
-        nameRow->addWidget(new QLabel(QStringLiteral("名称:")));
-        QLineEdit *nameEdit = new QLineEdit(target.name);
-        nameRow->addWidget(nameEdit, 1);
-        mainLayout->addLayout(nameRow);
+        dlg.setShapeName(target.name);
+        dlg.setShapeColor(target.color.isValid() ? target.color : Qt::white);
+        dlg.setShapeText(target.text);
 
-        // ── 文本内容（所有 shape 均可编辑，不限于 Fixed） ──
-        QLabel *textLabel = new QLabel(QStringLiteral("文本内容:"));
-        QTextEdit *textEdit = new QTextEdit;
-        textEdit->setPlainText(target.text);
-        textEdit->setMaximumHeight(60);
-        textEdit->setPlaceholderText(QStringLiteral("输入要显示的文字…"));
-        mainLayout->addWidget(textLabel);
-        mainLayout->addWidget(textEdit);
-
-        // ── 脚本配置 ──
-        QGroupBox *scriptGroup = new QGroupBox(QStringLiteral("脚本配置"));
-        QVBoxLayout *scriptLayout = new QVBoxLayout(scriptGroup);
-        scriptLayout->setSpacing(4);
-
-        // 脚本下拉
-        QHBoxLayout *scriptRow = new QHBoxLayout;
-        scriptRow->addWidget(new QLabel(QStringLiteral("脚本文件:")));
-        QComboBox *scriptCombo = new QComboBox;
-        scriptCombo->setEditable(true);
-        scriptCombo->setPlaceholderText("选择 .lua 脚本...");
-        // 填充脚本列表
+        // 脚本列表
         QString scriptsDir = AppPaths::resolveDataDir("data/scripts");
         QDir dir(scriptsDir);
-        auto files = dir.entryList({"*.lua"}, QDir::Files);
-        for (const auto &f : files)
-            scriptCombo->addItem(f);
-        if (!target.scriptName.isEmpty()) {
-            int ci = scriptCombo->findText(target.scriptName);
-            if (ci >= 0) scriptCombo->setCurrentIndex(ci);
-            else scriptCombo->setCurrentText(target.scriptName);
-        }
-        scriptRow->addWidget(scriptCombo, 1);
-        scriptLayout->addLayout(scriptRow);
+        QStringList files = dir.entryList({"*.lua"}, QDir::Files);
+        dlg.setScriptList(files);
+        dlg.setScriptName(target.scriptName);
 
-        // ── 脚本说明（只读，按行显示注释） ──
-        QLabel *descLabel = new QLabel(QStringLiteral("脚本说明:"));
-        QTextEdit *descView = new QTextEdit;
-        descView->setReadOnly(true);
-        descView->setMaximumHeight(80);
-        descView->setStyleSheet("background: #1e1e1e; color: #6a9955; font-size: 11px; border: 1px solid #444;");
-        // 加载当前脚本的说明
+        // 脚本说明
         {
-            QString curScript = scriptCombo->currentText().trimmed();
+            QString curScript = target.scriptName;
             if (curScript.endsWith(".lua", Qt::CaseInsensitive))
                 curScript = curScript.left(curScript.length() - 4);
-            QString desc = luaEngine->getScriptDescription(curScript);
-            descView->setPlainText(desc.isEmpty() ? QStringLiteral("（无注释）") : desc);
+            dlg.setScriptDescription(luaEngine->getScriptDescription(curScript));
         }
-        scriptLayout->addWidget(descLabel);
-        scriptLayout->addWidget(descView);
 
-        // 当下拉列表变化时，更新脚本说明
-        QObject::connect(scriptCombo, &QComboBox::currentTextChanged,
-            [luaEngine, descView](const QString &text) {
-            QString scriptName = text.trimmed();
-            if (scriptName.endsWith(".lua", Qt::CaseInsensitive))
-                scriptName = scriptName.left(scriptName.length() - 4);
-            QString desc = luaEngine->getScriptDescription(scriptName);
-            descView->setPlainText(desc.isEmpty() ? QStringLiteral("（无注释）") : desc);
-        });
-
-        // 参数行
-        QLineEdit *pName[3], *pValue[3];
-        for (int i = 0; i < 3; ++i) {
-            QHBoxLayout *pRow = new QHBoxLayout;
-            QLabel *pLbl = new QLabel(QStringLiteral("参数 %1:").arg(i + 1));
-            pLbl->setFixedWidth(55);
-            pRow->addWidget(pLbl);
-            QLineEdit *ne = new QLineEdit;
-            ne->setPlaceholderText("名称");
-            QLineEdit *ve = new QLineEdit;
-            ve->setPlaceholderText("数值");
-            pRow->addWidget(ne, 1);
-            pRow->addWidget(ve, 1);
-            scriptLayout->addLayout(pRow);
-            pName[i] = ne;
-            pValue[i] = ve;
-        }
-        // 解析现有参数填充
-        if (!target.scriptParams.isEmpty() && target.scriptParams.contains(":")) {
+        // 参数
+        if (!target.scriptParams.isEmpty()) {
             QJsonObject jo = QJsonDocument::fromJson(target.scriptParams.toUtf8()).object();
             int pi = 0;
             for (auto it = jo.begin(); it != jo.end() && pi < 3; ++it, ++pi) {
-                pName[pi]->setText(it.key());
-                pValue[pi]->setText(QString::number((*it).toDouble()));
+                dlg.setParam(pi, it.key(), QString::number((*it).toDouble()));
             }
         }
-        mainLayout->addWidget(scriptGroup);
-
-        mainLayout->addSpacing(6);
-
-        // ── 按钮 ──
-        QHBoxLayout *btnRow = new QHBoxLayout;
-        btnRow->addStretch();
-        QPushButton *cancelBtn = new QPushButton(QStringLiteral("取消"));
-        QPushButton *okBtn = new QPushButton(QStringLiteral("确定"));
-        btnRow->addWidget(cancelBtn);
-        btnRow->addWidget(okBtn);
-        mainLayout->addLayout(btnRow);
-
-        QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-        QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
 
         if (dlg.exec() == QDialog::Accepted) {
-            // 保存名称
-            target.name = nameEdit->text().trimmed();
-            // 保存文本内容
-            target.text = textEdit->toPlainText().trimmed();
+            target.name = dlg.getShapeName();
+            target.color = dlg.getShapeColor();
+            target.text = dlg.getShapeText();
+
             // 如果之前关联了脚本，先卸载旧脚本
             if (!target.scriptName.isEmpty()) {
                 QString oldFile = target.scriptName;
@@ -674,12 +542,12 @@ int main(int argc, char *argv[])
                 luaEngine->unloadScript(oldFile);
             }
             // 更新脚本
-            QString newScript = scriptCombo->currentText().trimmed();
+            QString newScript = dlg.getScriptName();
             // 拼装参数 JSON
             QStringList paramList;
             for (int i = 0; i < 3; ++i) {
-                QString n = pName[i]->text().trimmed();
-                QString v = pValue[i]->text().trimmed();
+                QString n = dlg.getParamName(i);
+                QString v = dlg.getParamValue(i);
                 if (!n.isEmpty() && !v.isEmpty())
                     paramList << QStringLiteral("\"%1\":%2").arg(n, v);
             }

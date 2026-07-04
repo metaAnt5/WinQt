@@ -2,14 +2,14 @@
 <ui version="4.0">
  <class>ShapeDialog</class>
  <widget class="QDialog" name="ShapeDialog">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>500</width>
-    <height>250</height>
-   </rect>
-  </property>
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>500</width>
+     <height>580</height>
+    </rect>
+   </property>
   <property name="windowTitle">
    <string>Shape Properties</string>
   </property>
@@ -165,6 +165,141 @@ background-color: white;</string>
       </spacer>
      </item>
     </layout>
+   </item>
+   <!-- 基本信息 -->
+   <item>
+    <widget class="QGroupBox" name="infoGroup">
+     <property name="title">
+      <string>基本信息</string>
+     </property>
+     <layout class="QVBoxLayout" name="infoLayout">
+      <item>
+       <widget class="QLabel" name="infoLabel">
+        <property name="styleSheet">
+         <string>color: #666; font-size: 11px; font-weight: normal;</string>
+        </property>
+        <property name="wordWrap">
+         <bool>true</bool>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <!-- 文本内容 -->
+   <item>
+    <layout class="QVBoxLayout" name="textLayout">
+     <item>
+      <widget class="QLabel" name="textLabel">
+       <property name="text">
+        <string>文本内容:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QTextEdit" name="textEdit">
+       <property name="maximumHeight">
+        <number>60</number>
+       </property>
+       <property name="placeholderText">
+        <string>输入要显示的文字…</string>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <!-- 脚本配置 -->
+   <item>
+    <widget class="QGroupBox" name="scriptGroup">
+     <property name="title">
+      <string>脚本配置</string>
+     </property>
+     <layout class="QVBoxLayout" name="scriptLayout">
+      <item>
+       <layout class="QHBoxLayout" name="scriptRow">
+        <item>
+         <widget class="QLabel" name="scriptLabel">
+          <property name="text">
+           <string>脚本文件:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QComboBox" name="scriptCombo">
+          <property name="editable">
+           <bool>true</bool>
+          </property>
+          <property name="placeholderText">
+           <string>选择 .lua 脚本...</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item>
+       <widget class="QLabel" name="descLabel">
+        <property name="text">
+         <string>脚本说明:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QTextEdit" name="descView">
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="maximumHeight">
+         <number>80</number>
+        </property>
+        <property name="styleSheet">
+         <string>background: #f0f0f0; color: #2d7d2d; font-size: 11px;</string>
+        </property>
+       </widget>
+      </item>
+      <!-- 参数 1 -->
+      <item>
+       <layout class="QHBoxLayout" name="p1Row">
+        <item>
+         <widget class="QLabel" name="p1Label">
+          <property name="text"><string>参数1:</string></property>
+          <property name="fixedWidth"><number>55</number></property>
+         </widget>
+        </item>
+        <item><widget class="QLineEdit" name="p1Name"><property name="placeholderText"><string>名称</string></property></widget></item>
+        <item><widget class="QLineEdit" name="p1Value"><property name="placeholderText"><string>数值</string></property></widget></item>
+       </layout>
+      </item>
+      <!-- 参数 2 -->
+      <item>
+       <layout class="QHBoxLayout" name="p2Row">
+        <item>
+         <widget class="QLabel" name="p2Label">
+          <property name="text"><string>参数2:</string></property>
+          <property name="fixedWidth"><number>55</number></property>
+         </widget>
+        </item>
+        <item><widget class="QLineEdit" name="p2Name"><property name="placeholderText"><string>名称</string></property></widget></item>
+        <item><widget class="QLineEdit" name="p2Value"><property name="placeholderText"><string>数值</string></property></widget></item>
+       </layout>
+      </item>
+      <!-- 参数 3 -->
+      <item>
+       <layout class="QHBoxLayout" name="p3Row">
+        <item>
+         <widget class="QLabel" name="p3Label">
+          <property name="text"><string>参数3:</string></property>
+          <property name="fixedWidth"><number>55</number></property>
+         </widget>
+        </item>
+        <item><widget class="QLineEdit" name="p3Name"><property name="placeholderText"><string>名称</string></property></widget></item>
+        <item><widget class="QLineEdit" name="p3Value"><property name="placeholderText"><string>数值</string></property></widget></item>
+       </layout>
+      </item>
+     </layout>
+    </widget>
    </item>
    <item>
     <spacer name="verticalSpacer">

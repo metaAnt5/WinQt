@@ -57,9 +57,16 @@ static int lua_core_bar(lua_State *L)
         return 1;
     }
 
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     int index = (int)luaL_checkinteger(L, 1);
     const auto &data = kw->allData();
-    int idx = data.size() - 1 - index; // index: 0 = latest, 1 = previous
+    int idx;
+    // 回放期间：使用当前回放位置 m_currentCandleIndex 作为参考点
+    if (engine && engine->currentCandleIndex() >= 0) {
+        idx = engine->currentCandleIndex() - index;
+    } else {
+        idx = data.size() - 1 - index; // index: 0 = latest, 1 = previous
+    }
     if (idx < 0 || idx >= data.size()) {
         lua_pushnil(L);
         return 1;
@@ -84,7 +91,13 @@ static int lua_core_bars_count(lua_State *L)
         lua_pushinteger(L, 0);
         return 1;
     }
-    lua_pushinteger(L, kw->allData().size());
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    // 回放期间：返回到当前回放位置为止的 K 线数量（不含当前待形成K线）
+    if (engine && engine->currentCandleIndex() >= 0) {
+        lua_pushinteger(L, engine->currentCandleIndex() + 1);
+    } else {
+        lua_pushinteger(L, kw->allData().size());
+    }
     return 1;
 }
 
@@ -113,8 +126,12 @@ static int lua_core_current_tf(lua_State *L)
 }
 
 // 辅助: 将 Lua index（0=最新, 1=上一根...）转为数组下标
-static int luaIndexToArrayIdx(const QVector<Candle> &data, int index)
+// 回放期间使用 engine->currentCandleIndex() 作为参考点
+static int luaIndexToArrayIdx(const QVector<Candle> &data, int index, LuaScriptEngine *engine = nullptr)
 {
+    if (engine && engine->currentCandleIndex() >= 0) {
+        return engine->currentCandleIndex() - index;
+    }
     return data.size() - 1 - index;
 }
 
@@ -133,7 +150,7 @@ static int lua_core_ma(lua_State *L)
     }
     KLineWidget *kw = engine->klineWidget();
     const auto &data = kw->allData();
-    int dataIdx = luaIndexToArrayIdx(data, index);
+    int dataIdx = luaIndexToArrayIdx(data, index, engine);
 
     // read from IndicatorCalculator cache
     auto &calc = IndicatorCalculator::instance();
@@ -158,7 +175,7 @@ static int lua_core_kdj(lua_State *L)
     }
     KLineWidget *kw = engine->klineWidget();
     const auto &data = kw->allData();
-    int dataIdx = luaIndexToArrayIdx(data, index);
+    int dataIdx = luaIndexToArrayIdx(data, index, engine);
 
     auto &calc = IndicatorCalculator::instance();
     QVector<double> k, d, j;
@@ -183,10 +200,11 @@ static int lua_core_highest(lua_State *L)
         lua_pushnumber(L, 0.0);
         return 1;
     }
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     int period = (int)luaL_checkinteger(L, 1);
     int index = (int)luaL_checkinteger(L, 2);
     const auto &data = kw->allData();
-    int dataIdx = luaIndexToArrayIdx(data, index);
+    int dataIdx = luaIndexToArrayIdx(data, index, engine);
     if (data.isEmpty() || dataIdx < 0 || dataIdx >= data.size()) {
         lua_pushnumber(L, 0.0);
         return 1;
@@ -209,10 +227,11 @@ static int lua_core_lowest(lua_State *L)
         lua_pushnumber(L, 0.0);
         return 1;
     }
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
     int period = (int)luaL_checkinteger(L, 1);
     int index = (int)luaL_checkinteger(L, 2);
     const auto &data = kw->allData();
-    int dataIdx = luaIndexToArrayIdx(data, index);
+    int dataIdx = luaIndexToArrayIdx(data, index, engine);
     if (data.isEmpty() || dataIdx < 0 || dataIdx >= data.size()) {
         lua_pushnumber(L, 0.0);
         return 1;
@@ -506,10 +525,20 @@ static int lua_core_shape_add_child(lua_State *L)
     const char *text = luaL_optstring(L, 4, "");
 
     int parentId = engine->currentScriptParentShapeId();
-    if (parentId <= 0) { lua_pushinteger(L, -1); return 1; }
+
+    emit engine->scriptLog(QStringLiteral("[Lua-Dbg] lua_core_shape_add_child: type=%1 candleIndex=%2 price=%3 text=%4 parentId=%5")
+        .arg(typeStr).arg(candleIndex).arg(price).arg(text).arg(parentId));
+
+    if (parentId <= 0) {
+        emit engine->scriptLog(QStringLiteral("[Lua-Dbg] lua_core_shape_add_child SKIP: parentId=%1 <= 0, type=%2 candleIndex=%3 price=%4 text=%5")
+            .arg(parentId).arg(typeStr).arg(candleIndex).arg(price).arg(text));
+        lua_pushinteger(L, -1);
+        return 1;
+    }
 
     // 判断类型：TriangleUp/TriangleDown → 数据坐标，随 K 线移动
     bool isTriangle = (strcmp(typeStr, "TriangleUp") == 0 || strcmp(typeStr, "TriangleDown") == 0);
+
 
     int childId;
     if (isTriangle) {
@@ -544,6 +573,10 @@ static int lua_core_child_add(lua_State *L)
     const char *text = luaL_optstring(L, 4, "");
 
     int parentId = engine->currentScriptParentShapeId();
+
+    emit engine->scriptLog(QStringLiteral("[Lua-Dbg] lua_core_child_add: type=%1 normX=%2 normY=%3 text=%4 parentId=%5")
+        .arg(typeStr).arg(normX).arg(normY).arg(text).arg(parentId));
+
     if (parentId <= 0) { lua_pushinteger(L, -1); return 1; }
 
     int childId = engine->addChildShape(parentId, QString::fromUtf8(typeStr), normX, normY, QString::fromUtf8(text));
@@ -815,6 +848,8 @@ void LuaScriptEngine::unloadByBinding(const QString &symbol, int timeframe)
 void LuaScriptEngine::requestBarEvent(const QString &symbol, int timeframe,
                                        const Candle &candle, bool isNewBar)
 {
+    emit scriptLog(QStringLiteral("[Lua-Dbg] requestBarEvent: %1 tf=%2 isNew=%3")
+        .arg(symbol).arg(timeframe).arg(isNewBar));
     if (QThread::currentThread() == QCoreApplication::instance()->thread()) {
         // 已经在主线程，直接调用
         onBarEvent(symbol, timeframe, candle, isNewBar);
@@ -836,7 +871,15 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
     QMutexLocker lock(&m_mutex);
 
     lua_State *L = (lua_State*)m_state;
-    if (!L) return;
+    if (!L) {
+        emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: L==null, skip symbol=%1 tf=%2")
+            .arg(symbol).arg(timeframe));
+        return;
+    }
+
+    emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: symbol=%1 tf=%2 idx=%3 isNew=%4 date=%5")
+        .arg(symbol).arg(timeframe).arg(candleIndex).arg(isNewBar)
+        .arg(candle.date.toString(Qt::ISODate)));
 
     // ── 更新回放状态（收到任何实时数据后，将对应 (symbol,tf) 置为实时模式） ──
     QString replayKey = symbol + "|" + QString::number(timeframe);
@@ -850,6 +893,8 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
 
     // ── 通过 m_symbolScriptMap 直接索引当前 (symbol,tf) 的脚本 ──
     QStringList scripts = m_symbolScriptMap.value(replayKey);
+    emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: m_symbolScriptMap[%1] = %2 scripts")
+        .arg(replayKey).arg(scripts.size()));
     if (scripts.isEmpty()) {
         // 也检查全局脚本（sym="" 或 tf=0）
         // 直接遍历 m_loadedScripts 找全局脚本
@@ -863,6 +908,8 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
                 scripts.append(it.key());
             }
         }
+        if (!scripts.isEmpty())
+            emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: found %1 global/matched scripts").arg(scripts.size()));
     }
 
     // 回放计数
@@ -900,16 +947,22 @@ void LuaScriptEngine::onBarEvent(const QString &symbol, int timeframe,
                 }
             }
         }
+        emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: script=%1 parentShapeId=%2")
+            .arg(scriptName).arg(m_currentParentShapeId));
 
         // 检查对应的回调函数
         const char *funcName = isNewBar ? "on_bar_new" : "on_bar_update";
         lua_getglobal(L, funcName);
         if (lua_type(L, -1) != LUA_TFUNCTION) {
+            emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: %1 not defined in %2, skip")
+                .arg(funcName).arg(scriptName));
             lua_pop(L, 1);
             m_currentScriptName.clear();
             m_currentParentShapeId = 0;
             continue;
         }
+        emit scriptLog(QStringLiteral("[Lua-Dbg] onBarEvent: calling %1.%2() idx=%3 parentShapeId=%4")
+            .arg(scriptName).arg(funcName).arg(candleIndex).arg(m_currentParentShapeId));
 
         // 构建 candle table（带上 index 字段，供脚本根据 K 线位置画子 shape）
         lua_createtable(L, 0, 7);
@@ -954,19 +1007,24 @@ void LuaScriptEngine::replayBars(const QString &symbol, int timeframe,
     bool oldReplay = m_isReplay;
     m_isReplay = true;
 
-    qDebug() << "[Lua] replayBars:" << symbol << timeframe << "bars:" << data.size();
+    emit scriptLog(QStringLiteral("[Lua-Dbg] replayBars: %1 tf=%2 bars=%3")
+        .arg(symbol).arg(timeframe).arg(data.size()));
 
     // 逐根 K 线调用 onBarEvent
     // 第一根一定是新 K 线，后续每根与上一根时间不同也是新 K 线
     for (int i = 0; i < data.size(); ++i) {
         bool isNew = (i == 0) || (data[i].date != data[i-1].date);
+        // 设置当前回放索引，使 core.bar() 等 API 以此为准（而非 data.size()）
+        m_currentCandleIndex = i;
         onBarEvent(symbol, timeframe, data[i], isNew, i);
     }
+    m_currentCandleIndex = -1; // 清理回放索引
 
     // 恢复回放模式
     m_isReplay = oldReplay;
 
-    qDebug() << "[Lua] replayBars done:" << symbol << timeframe;
+    emit scriptLog(QStringLiteral("[Lua-Dbg] replayBars done: %1 tf=%2")
+        .arg(symbol).arg(timeframe));
 }
 
 void LuaScriptEngine::registerKLineWidget(KLineWidget *kw)
@@ -1088,7 +1146,13 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
                                      bool klineBound)
 {
     KLineWidget *kw = klineWidget();
-    if (!kw) return -1;
+    if (!kw) {
+        emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape FAILED: kw==null, parentId=%1 type=%2 x=%3 y=%4 text=%5 klineBound=%6")
+            .arg(parentShapeId).arg(type).arg(x).arg(y).arg(text).arg(klineBound));
+        return -1;
+    }
+    emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape enter: parentId=%1 type=%2 x=%3 y=%4 text=%5 klineBound=%6")
+        .arg(parentShapeId).arg(type).arg(x).arg(y).arg(text).arg(klineBound));
     KLineWidget::Shape s;
     s.ownerShapeId = parentShapeId;
     s.text = text;
@@ -1113,7 +1177,10 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
         s.type = KLineWidget::Shape_Fixed;
     }
 
-    return kw->addShape(s);
+    int newId = kw->addShape(s);
+    emit scriptLog(QStringLiteral("[Lua-Dbg] addChildShape result: newId=%1 (parentId=%2 type=%3)")
+        .arg(newId).arg(parentShapeId).arg(type));
+    return newId;
 }
 
 bool LuaScriptEngine::removeChildShape(int childShapeId)

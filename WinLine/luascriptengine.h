@@ -105,6 +105,7 @@ public:
     QVector<int> childShapeIds(int parentShapeId) const;
     // 获取当前脚本上下文中的父 shape id
     int currentScriptParentShapeId() const { return m_currentParentShapeId; }
+    int currentCandleIndex() const { return m_currentCandleIndex; }
 
     // ── 回放模式（历史数据加载/模拟回放时启用，抑制 alert/send_feishu） ──
     void setReplayMode(bool replay) {
@@ -213,6 +214,7 @@ private:
     std::shared_ptr<NetCore::IoContextManager> m_ioCtxMgr;
 
     int m_currentParentShapeId = 0; // 当前脚本执行上下文中的父 shape id
+    int m_currentCandleIndex = -1;  // 回放期间当前处理的 K 线索引（-1 表示非回放模式）
 
     QString m_lastError;
 

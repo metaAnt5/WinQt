@@ -289,7 +289,6 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
         s.color = QColor(255, 200, 100);
         addShape(s);
         saveShapes();
-        emit shapesChanged();
         m_toolMode = Tool_None;
         setCursor(Qt::ArrowCursor);
         return;
@@ -484,7 +483,6 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 m_lastMousePos = event->pos();
                 update();
                 setFocus();
-                emit shapesChanged();
                 return;
             }
 
@@ -495,7 +493,6 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 int id = addShape(ns);
                 Q_UNUSED(id)
                 saveShapes();
-                emit shapesChanged();
                 // 保持线工具模式，可继续画多条水平线
                 update();
                 setFocus();
@@ -507,7 +504,6 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
             m_lastMousePos = event->pos();
             update();
             setFocus();
-            emit shapesChanged();
             return;
         }
     }
@@ -1187,7 +1183,6 @@ void KLineWidget::deleteSelectedShape()
     }
     m_selectedShapeIndex = -1;
     update();
-    emit shapesChanged();
 }
 
 void KLineWidget::clearShapes()
@@ -1196,7 +1191,6 @@ void KLineWidget::clearShapes()
     m_selectedShapeIndex = -1;
     saveShapes();
     update();
-    emit shapesChanged();
 }
 
 void KLineWidget::wheelEvent(QWheelEvent *event)
@@ -1235,112 +1229,6 @@ void KLineWidget::wheelEvent(QWheelEvent *event)
 }
 
 
-void KLineWidget::editShapeProperties(int index)
-{
-    if (index < 0 || index >= m_shapes.size()) return;
-    Shape &s = m_shapes[index];
-
-    // ── 统一属性对话框 ──
-    QDialog dlg(this);
-    dlg.setWindowTitle(tr("图形属性"));
-    dlg.setMinimumWidth(380);
-
-    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
-    mainLayout->setSpacing(10);
-
-    // 名称
-    mainLayout->addWidget(new QLabel(tr("名称:")));
-    QLineEdit *nameEdit = new QLineEdit(s.name);
-    nameEdit->selectAll();
-    mainLayout->addWidget(nameEdit);
-
-    // 文本（仅 Fixed 图形）
-    QLineEdit *textEdit = nullptr;
-    if (s.attachment == Attach_Fixed) {
-        mainLayout->addWidget(new QLabel(tr("文本内容:")));
-        textEdit = new QLineEdit(s.text);
-        mainLayout->addWidget(textEdit);
-    }
-
-    // 颜色
-    mainLayout->addWidget(new QLabel(tr("颜色:")));
-    QHBoxLayout *colorRow = new QHBoxLayout;
-    QLabel *colorPreview = new QLabel;
-    colorPreview->setFixedSize(50, 28);
-    colorPreview->setAutoFillBackground(true);
-    QColor curColor = s.color.isValid() ? s.color : Qt::white;
-    QPalette pal = colorPreview->palette();
-    pal.setColor(QPalette::Window, curColor);
-    colorPreview->setPalette(pal);
-    QPushButton *colorBtn = new QPushButton(tr("选择颜色"));
-    colorRow->addWidget(colorPreview);
-    colorRow->addWidget(colorBtn);
-    colorRow->addStretch();
-    mainLayout->addLayout(colorRow);
-
-    // 脚本
-    mainLayout->addWidget(new QLabel(tr("关联脚本 (可选):")));
-    QComboBox *scriptCombo = new QComboBox;
-    scriptCombo->setEditable(true);
-    scriptCombo->setPlaceholderText(tr("选择 .lua 脚本..."));
-    QString scriptsDir = QCoreApplication::applicationDirPath() + "/data/scripts";
-    QDir sdir(scriptsDir);
-    if (sdir.exists()) {
-        auto files = sdir.entryList({"*.lua"}, QDir::Files);
-        for (const auto &f : files) scriptCombo->addItem(f);
-    }
-    if (!s.scriptName.isEmpty()) {
-        int ci = scriptCombo->findText(s.scriptName);
-        if (ci >= 0) scriptCombo->setCurrentIndex(ci);
-        else scriptCombo->setCurrentText(s.scriptName);
-    }
-    mainLayout->addWidget(scriptCombo);
-
-    // 脚本参数
-    mainLayout->addWidget(new QLabel(tr("脚本参数 (JSON):")));
-    QLineEdit *paramEdit = new QLineEdit(s.scriptParams);
-    mainLayout->addWidget(paramEdit);
-
-    // OK/Cancel
-    mainLayout->addSpacing(10);
-    QHBoxLayout *btnRow = new QHBoxLayout;
-    btnRow->addStretch();
-    QPushButton *okBtn = new QPushButton(tr("确定"));
-    QPushButton *cancelBtn = new QPushButton(tr("取消"));
-    btnRow->addWidget(okBtn);
-    btnRow->addWidget(cancelBtn);
-    mainLayout->addLayout(btnRow);
-
-    // 连接信号
-    QObject::connect(colorBtn, &QPushButton::clicked, [&curColor, colorPreview, &dlg]() {
-        QColor c = QColorDialog::getColor(curColor, &dlg, tr("选择颜色"));
-        if (c.isValid()) {
-            curColor = c;
-            QPalette pal = colorPreview->palette();
-            pal.setColor(QPalette::Window, curColor);
-            colorPreview->setPalette(pal);
-        }
-    });
-    QObject::connect(okBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
-    QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
-
-    if (dlg.exec() == QDialog::Accepted) {
-        s.name = nameEdit->text().trimmed();
-        s.color = curColor;
-        if (textEdit) s.text = textEdit->text().trimmed();
-
-        QString newScript = scriptCombo->currentText().trimmed();
-        if (newScript != s.scriptName && !s.scriptName.isEmpty()) {
-            // Script change - unload handled externally
-        }
-        s.scriptName = newScript;
-        s.scriptParams = paramEdit->text().trimmed();
-
-        saveShapes();
-        update();
-        emit shapesChanged();
-    }
-}
 
 // helper: convert screen coord to data coord (candle index & price)
 void KLineWidget::screenToDataCoord(const QPointF &screenPt, double &candleIdx, double &price)
@@ -1817,7 +1705,6 @@ int KLineWidget::addShape(const Shape &s)
     }
     m_shapes.append(ns);
     update();
-    emit shapesChanged();
     return ns.id;
 }
 
@@ -1941,8 +1828,6 @@ void KLineWidget::loadShapes()
 
     m_selectedShapeIndex = -1;
     update();
-    emit shapesChanged();
-    emit shapesLoaded();
 }
 // ============================================================
 // 十字光标悬浮信息框绘制

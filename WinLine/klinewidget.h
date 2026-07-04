@@ -82,7 +82,6 @@ public:
     // Loading overlay
     void showLoading(const QString &msg = QStringLiteral("Loading..."));
     void hideLoading();
-    void editShapeProperties(int index);
     void screenToDataCoord(const QPointF &screenPt, double &candleIdx, double &price);
     void dataCoordToScreen(double candleIdx, double price, QPointF &screenPt);
     double pointToLineDist(const QPointF &p, const QPointF &a, const QPointF &b);
@@ -129,13 +128,8 @@ Q_SIGNALS:
     void viewportChanged(int startIndex, int visibleCount);
     // Emit when viewport or layout (spacing) changes so indicators can align using the same mapping
     void layoutChanged(int startIndex, int visibleCount, double totalPer, double candleBodyWidth, QRect mainChartRect);
-    // Emit when shapes or trades are modified
-    void shapesChanged();
     // Emit when a shape is selected (index), for updating property panel
     void shapeSelected(int index);
-
-    // Emit when shapes are loaded from file (for Lua script engine to load associated scripts)
-    void shapesLoaded();
 
     // Emit when shapes are saved to file (for Lua script engine cache refresh)
     void shapesSaved(const QString &symbol, int timeframe);
