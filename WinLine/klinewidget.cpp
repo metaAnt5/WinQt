@@ -361,19 +361,16 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 emit shapeSelected(m_selectedShapeIndex);
                 return;
             }
-            if (clickedIdx >= 0) {
+            // 记录是否命中了 shape 体（非端点），用于后面决定是否清空选中
+            bool bodyHit = (clickedIdx >= 0);
+            if (bodyHit) {
                 m_selectedShapeIndex = clickedIdx;
                 m_draggingEndpoint = 0;
-                // Only allow dragging move if the shape type supports it
-                if (canDrag(static_cast<ShapeType>(m_shapes[clickedIdx].type))) {
-                    m_movingShape = true;
-                } else {
-                    m_movingShape = false;
-                }
+                m_movingShape = false;
                 m_lastMousePos = event->pos();
                 update();
                 emit shapeSelected(m_selectedShapeIndex);
-                return;
+                // 点击线体只是选中，不拦截 panning，继续执行到下方
             }
             // Try to select a Fixed shape by screen position
             QRect cr = mainChartRect();
@@ -395,14 +392,17 @@ void KLineWidget::mousePressEvent(QMouseEvent *event)
                 update();
                 return;
             }
-            // No shape hit: start panning
+            // 如果有 body hit，不清空选中，只启动 panning
+            if (!bodyHit) {
+                m_selectedShapeIndex = -1;
+            }
+            // Start panning
             m_panning = true;
-            m_selectedShapeIndex = -1;
             m_draggingEndpoint = 0;
             m_lastMousePos = event->pos();
             setCursor(Qt::ClosedHandCursor);
             update();
-            emit shapeSelected(-1);
+            emit shapeSelected(m_selectedShapeIndex);
             return;
         }
     }
