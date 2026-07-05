@@ -35,8 +35,8 @@ function on_bar_new(candle, script_name)
     -- 刚刚结束的K线在数据数组中的下标（用于形状定位）
     local idx = core.bars_count() - 2
 
-    -- 价格偏移量
-    local offset = 2.0
+    -- 价格偏移量（加大数值使三角形远离K线）
+    local offset = 15.0
 
     -- 上穿（金叉）：前一根收盘 < MA5，当前收盘 >= MA5
     if prev_close < prev_ma5 and cur_close >= cur_ma5 then
