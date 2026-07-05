@@ -81,6 +81,8 @@ QJsonObject Shape::toJson() const
     obj["profit"] = profit;
     obj["scriptName"] = scriptName;
     obj["scriptParams"] = scriptParams;
+    obj["symbol"] = symbol;
+    obj["timeframe"] = timeframe;
     if (followsKLine()) {
         obj["candleIdx1"] = x1;
         obj["price1"] = y1;
@@ -107,6 +109,8 @@ void Shape::fromJson(const QJsonObject &obj)
     profit = obj["profit"].toDouble();
     scriptName = obj["scriptName"].toString();
     scriptParams = obj["scriptParams"].toString();
+    symbol = obj["symbol"].toString();
+    timeframe = obj["timeframe"].toInt();
 
     if (obj.contains("candleIdx1")) {
         x1 = obj["candleIdx1"].toDouble();

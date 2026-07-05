@@ -43,6 +43,9 @@ public:
     // 脚本字段
     QString scriptName;
     QString scriptParams;
+    // 所属品种周期（用于多品种过滤，防止跨品种显示）
+    QString symbol;
+    int timeframe = 0; // 周期（分钟），0=不限制
 
     // 坐标（子类按需使用）：
     //   KLineShape: (x,y) = (candleIndex, price)

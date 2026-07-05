@@ -559,9 +559,18 @@ void KLineWidget::paintEvent(QPaintEvent *event)
         p.fillRect(bodyRect, clr); p.drawRect(bodyRect);
     }
 
-    // Draw user shapes via polymorphic draw
+    // Draw user shapes via polymorphic draw（仅显示匹配当前品种周期的 shape）
     for (int i = 0; i < m_shapes.size(); ++i) {
-        m_shapes[i]->draw(p, this, i == m_selectedShapeIndex);
+        const auto &s = m_shapes[i];
+        // 运行中 shape 自动补齐 symbol/tf
+        if (s->symbol.isEmpty()) s->symbol = m_symbol;
+        if (s->timeframe == 0) s->timeframe = m_baseMinutes;
+        // 品种不匹配跳过（Fixed/Text 全局固定显示不受限）
+        if (s->attachment() != Attachment::Fixed && s->followsKLine()) {
+            if (s->symbol != m_symbol && !s->symbol.isEmpty()) continue;
+            if (s->timeframe != m_baseMinutes && s->timeframe != 0) continue;
+        }
+        s->draw(p, this, i == m_selectedShapeIndex);
     }
 
     // Moving averages
@@ -868,6 +877,9 @@ int KLineWidget::addShape(QSharedPointer<Shape> s)
 {
     s->id = m_nextShapeId++;
     if (!s->color.isValid()) s->color = s->followsKLine() ? Qt::white : QColor(255,200,100);
+    // 自动关联当前品种周期
+    if (s->symbol.isEmpty()) s->symbol = m_symbol;
+    if (s->timeframe == 0) s->timeframe = m_baseMinutes;
     m_shapes.append(s); update();
     return s->id;
 }
