@@ -19,9 +19,11 @@ void TriangleShape::draw(QPainter &p, const KLineWidget *kw, bool selected) cons
     double h = bw * 1.2;
     double cx = kw->candleCenterXForIndex(x1);
 
+    // 屏幕坐标 y = 价格 y1 对应的屏幕位置 + 缩放比例的间距偏移
+    // pixelOffsetY 是相对于 K 线柱宽度的倍数，随缩放等比变化
     QPointF screenP1;
     kw->dataCoordToScreen(x1, y1, screenP1);
-    double cy = screenP1.y();
+    double cy = screenP1.y() + pixelOffsetY * bw;
 
     QPolygonF tri;
     if (up) {
@@ -53,7 +55,7 @@ int TriangleShape::hitTest(const QPointF &screenPt, const KLineWidget *kw) const
 
     QPointF screenP1;
     kw->dataCoordToScreen(x1, y1, screenP1);
-    double cy = screenP1.y();
+    double cy = screenP1.y() + pixelOffsetY * bw;
 
     QPolygonF tri;
     if (up) {

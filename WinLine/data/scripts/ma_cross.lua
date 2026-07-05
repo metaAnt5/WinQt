@@ -13,13 +13,13 @@ function on_bar_new(candle)
     -- K 上穿 D = 金叉
     if k > d and prev_k <= prev_d then
         core.alert("KDJ 金叉! " .. candle.symbol)
-        -- TriangleUp 箭头向上，画在最新K线最低点下方
-        core.shape_add_child("TriangleUp", 0, candle.low - 1.5)
+        -- TriangleUp 箭头向上，间距由 C++ pixelOffsetY 控制
+        core.shape_add_child("TriangleUp", 0, candle.low)
     -- K 下穿 D = 死叉
     elseif k < d and prev_k >= prev_d then
         core.alert("KDJ 死叉! " .. candle.symbol)
-        -- TriangleDown 箭头向下，画在最新K线最高点上方
-        core.shape_add_child("TriangleDown", 0, candle.high + 1.5)
+        -- TriangleDown 箭头向下，间距由 C++ pixelOffsetY 控制
+        core.shape_add_child("TriangleDown", 0, candle.high)
     end
 end
 

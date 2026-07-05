@@ -69,8 +69,8 @@ function on_bar_new(candle, script_name)
         if prev.index ~= last_signal_idx then
             last_signal_idx = prev.index
 
-            -- 画三角形（向上，画在最低点下方）
-            core.shape_add_child("TriangleUp", 0, candle.low - 0.5)
+            -- 画三角形（向上），间距由 C++ pixelOffsetY 控制
+            core.shape_add_child("TriangleUp", 0, candle.low)
 
             -- 飞书提醒
             local msg = string.format(
@@ -99,8 +99,8 @@ function on_bar_new(candle, script_name)
         if prev.index ~= last_signal_idx then
             last_signal_idx = prev.index
 
-            -- 画三角形（向下，画在最高点上方）
-            core.shape_add_child("TriangleDown", 0, candle.high + 0.5)
+            -- 画三角形（向下），间距由 C++ pixelOffsetY 控制
+            core.shape_add_child("TriangleDown", 0, candle.high)
 
             -- 飞书提醒
             local msg = string.format(

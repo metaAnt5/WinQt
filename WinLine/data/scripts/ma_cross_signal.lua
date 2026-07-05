@@ -35,16 +35,15 @@ function on_bar_new(candle, script_name)
     -- 刚刚结束的K线在数据数组中的下标（用于形状定位）
     local idx = core.bars_count() - 2
 
-    -- 价格偏移量（加大数值使三角形远离K线）
-    local offset = 15.0
-
     -- 上穿（金叉）：前一根收盘 < MA5，当前收盘 >= MA5
+    -- 三角形与K线的间距由 C++ 层 pixelOffsetY 控制，不受缩放影响
     if prev_close < prev_ma5 and cur_close >= cur_ma5 then
-        core.shape_add_child("TriangleUp", idx, cur_low - offset)
+        core.shape_add_child("TriangleUp", idx, cur_low)
     end
 
     -- 下穿（死叉）：前一根收盘 > MA5，当前收盘 <= MA5
+    -- 三角形与K线的间距由 C++ 层 pixelOffsetY 控制，不受缩放影响
     if prev_close > prev_ma5 and cur_close <= cur_ma5 then
-        core.shape_add_child("TriangleDown", idx, cur_high + offset)
+        core.shape_add_child("TriangleDown", idx, cur_high)
     end
 end

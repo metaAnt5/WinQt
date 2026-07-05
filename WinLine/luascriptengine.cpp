@@ -1147,6 +1147,10 @@ int LuaScriptEngine::addChildShape(int parentShapeId, const QString &type,
         ts->setAttachment(Attachment::KLineBound);
         ts->x1 = x;  // candleIndex
         ts->y1 = y;  // price
+        // pixelOffsetY 为 K 线柱宽度的倍数，间距 = pixelOffsetY * candleBodyWidth
+        // 随缩放等比变化（类似 K 线柱本身的大小变化）
+        // 上三角在下方（+1.5），下三角在上方（-1.5）
+        ts->pixelOffsetY = ts->up ? 1.5 : -1.5;
         s = ts;
     } else {
         // Attach_Fixed: 归一化坐标 (x=normX, y=normY)，屏幕固定
