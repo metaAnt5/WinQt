@@ -250,6 +250,27 @@ static int lua_core_lowest(lua_State *L)
     return 1;
 }
 
+// core.volume(index) -> double
+// index: 0=最新, 1=上一根...
+static int lua_core_volume(lua_State *L)
+{
+    KLineWidget *kw = getKLineWidget(L);
+    if (!kw) {
+        lua_pushnumber(L, 0.0);
+        return 1;
+    }
+    LuaScriptEngine *engine = (LuaScriptEngine*)lua_touserdata(L, lua_upvalueindex(1));
+    int index = (int)luaL_checkinteger(L, 1);
+    const auto &data = kw->allData();
+    int dataIdx = luaIndexToArrayIdx(data, index, engine);
+    if (data.isEmpty() || dataIdx < 0 || dataIdx >= data.size()) {
+        lua_pushnumber(L, 0.0);
+        return 1;
+    }
+    lua_pushnumber(L, data[dataIdx].volume);
+    return 1;
+}
+
 // core.alert(msg)
 static int lua_core_alert(lua_State *L)
 {
@@ -259,9 +280,7 @@ static int lua_core_alert(lua_State *L)
     return 0;
 }
 
-// core.send_feishu(msg) — 异步发送飞书消息（带完整结果日志和统计）
-static std::atomic<int> g_feishuSendCount{0};
-
+// core.send_feishu(msg) — 异步发送飞书消息（错开 5 分钟整点避免限流）
 static int lua_core_send_feishu(lua_State *L)
 {
     const char *msg = luaL_checkstring(L, 1);
@@ -281,46 +300,39 @@ static int lua_core_send_feishu(lua_State *L)
         emit engine->scriptLog(log);
         return 0;
     }
-    int seq = ++g_feishuSendCount;
     QString fullMsg = QString::fromUtf8(msg);
-    QString preview = fullMsg.left(80);
-    QString logSend = QString("[send_feishu #%1] Scheduled (delay 60s), content:\n%2").arg(seq).arg(fullMsg);
-    qDebug().noquote() << logSend;
-    emit engine->scriptLog(logSend);
 
-    // 延迟 60 秒发送，避免短时间内连续发送被飞书限流
-    auto senderPtr = sender; // keep shared_ptr alive
-    QTimer::singleShot(60000, engine, [engine, senderPtr, seq, fullMsg]() {
-        QString logNow = QString("[send_feishu #%1] Now sending (60s delay expired)...").arg(seq);
-        qDebug().noquote() << logNow;
-        emit engine->scriptLog(logNow);
-
+    // 如果当前时间戳能整除 300（5 分钟边界），延迟几秒避开飞书滑动窗口限流
+    qint64 epoch = QDateTime::currentSecsSinceEpoch();
+    int delaySec = 0;
+    if (epoch % 300 == 0) {
+        delaySec = 1 + (rand() % 5);
+    }
+    if (delaySec > 0) {
+        qDebug().noquote() << "[send_feishu] At 5min boundary, delay" << delaySec << "s";
+        emit engine->scriptLog(QString("[send_feishu] Delay %1s to avoid 5min window").arg(delaySec));
+        auto senderPtr = sender;
+        QTimer::singleShot(delaySec * 1000, engine, [engine, senderPtr, fullMsg]() {
+            std::string msgStr = fullMsg.toStdString();
+            senderPtr->SendMarkdown(msgStr, [engine](const NetCore::HttpResponse &resp) {
+                QString logResult = QString("[send_feishu] Send result: HTTP %1 %2")
+                                        .arg(resp.status_code)
+                                        .arg(QString::fromStdString(resp.status_text));
+                qDebug().noquote() << logResult;
+                emit engine->scriptLog(logResult);
+            });
+        });
+    } else {
+        // 不在边界，直接发送
         std::string msgStr = fullMsg.toStdString();
-        senderPtr->SendMarkdown(msgStr, [engine, seq, fullMsg](const NetCore::HttpResponse &resp) {
-            QString statusDesc;
-            if (resp.status_code == 200) {
-                QString body = QString::fromStdString(resp.body);
-                if (body.contains("success") || body.contains("\"code\":0"))
-                    statusDesc = "SUCCESS";
-                else if (body.contains("frequency limited"))
-                    statusDesc = "FREQUENCY_LIMITED";
-                else if (body.contains("invalid"))
-                    statusDesc = "INVALID";
-                else
-                    statusDesc = "UNKNOWN";
-            } else {
-                statusDesc = "HTTP_ERROR";
-            }
-
-            QString logResult = QString("[send_feishu #%1] Async result: status=%2(%3), result=%4")
-                                    .arg(seq)
+        sender->SendMarkdown(msgStr, [engine](const NetCore::HttpResponse &resp) {
+            QString logResult = QString("[send_feishu] Send result: HTTP %1 %2")
                                     .arg(resp.status_code)
-                                    .arg(QString::fromStdString(resp.status_text))
-                                    .arg(statusDesc);
+                                    .arg(QString::fromStdString(resp.status_text));
             qDebug().noquote() << logResult;
             emit engine->scriptLog(logResult);
         });
-    });
+    }
     return 0;
 }
 
@@ -719,6 +731,7 @@ void LuaScriptEngine::registerCoreAPI()
         {"kdj",         lua_core_kdj},
         {"highest",     lua_core_highest},
         {"lowest",      lua_core_lowest},
+        {"volume",      lua_core_volume},
         {"alert",       lua_core_alert},
         {"send_feishu", lua_core_send_feishu},
         {"shape_remove", lua_core_shape_remove},
