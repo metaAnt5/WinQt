@@ -302,14 +302,20 @@ static int lua_core_send_feishu(lua_State *L)
     }
     QString fullMsg = QString::fromUtf8(msg);
 
-    // 如果当前时间戳能整除 300（5 分钟边界），延迟几秒避开飞书滑动窗口限流
+    // 避开飞书滑动窗口限流：距离 5 分钟边界（±30 秒内）时延迟到边界外再发送
     qint64 epoch = QDateTime::currentSecsSinceEpoch();
+    int remainder = epoch % 300;
     int delaySec = 0;
-    if (epoch % 300 == 0) {
-        delaySec = 1 + (rand() % 5);
+    const int windowBuffer = 30; // 边界前后各 30 秒为限流窗口
+    if (remainder < windowBuffer) {
+        // 在边界后 0~30 秒内，延迟到 30 秒后
+        delaySec = windowBuffer - remainder + 1;
+    } else if (remainder > (300 - windowBuffer)) {
+        // 在边界前 0~30 秒内，延迟到越过下一个边界 30 秒后
+        delaySec = (300 - remainder) + windowBuffer + 1;
     }
     if (delaySec > 0) {
-        qDebug().noquote() << "[send_feishu] At 5min boundary, delay" << delaySec << "s";
+        qDebug().noquote() << "[send_feishu] Within 5min boundary window, delay" << delaySec << "s";
         emit engine->scriptLog(QString("[send_feishu] Delay %1s to avoid 5min window").arg(delaySec));
         auto senderPtr = sender;
         QTimer::singleShot(delaySec * 1000, engine, [engine, senderPtr, fullMsg]() {
@@ -323,7 +329,7 @@ static int lua_core_send_feishu(lua_State *L)
             });
         });
     } else {
-        // 不在边界，直接发送
+        // 远离边界，直接发送
         std::string msgStr = fullMsg.toStdString();
         sender->SendMarkdown(msgStr, [engine](const NetCore::HttpResponse &resp) {
             QString logResult = QString("[send_feishu] Send result: HTTP %1 %2")
