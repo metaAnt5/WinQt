@@ -16,10 +16,6 @@ class SettingsDialog : public QDialog {
 public:
     explicit SettingsDialog(QWidget *parent = nullptr);
 
-    // 飞书
-    QString feishuWebhook() const;
-    void setFeishuWebhook(const QString &url);
-
     // 图形颜色
     QColor shapeColor(const QString &shapeType) const;
     void setShapeColor(const QString &shapeType, const QColor &color);
@@ -49,9 +45,6 @@ private:
     void setupUI();
 
     QTabWidget *m_tabs;
-
-    // 飞书页签
-    QLineEdit *m_feishuWebhookEdit;
 
     // 图形颜色页签
     QMap<QString, QPushButton*> m_colorButtons;

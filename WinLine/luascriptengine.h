@@ -12,11 +12,6 @@
 
 struct KBar;
 class KLineWidget;
-class FeishuSender;
-
-namespace NetCore {
-class IoContextManager;
-}
 
 // ============================================================
 // ScriptBinding - 记录每个脚本绑定的品种/周期信息
@@ -139,12 +134,6 @@ public:
     // 获取当前正在执行的脚本名（供 C 回调在无显式参数时确定上下文）
     QString currentScriptName() const { return m_currentScriptName; }
 
-    // 飞书消息发送器（供 Lua C API 回调使用）
-    std::shared_ptr<FeishuSender> feishuSender() const { return m_feishuSender; }
-
-    // IoContextManager 访问器（供 Lua C API 创建临时 FeishuSender 使用）
-    std::shared_ptr<NetCore::IoContextManager> ioContextManager() const { return m_ioCtxMgr; }
-
     // 获取某 (symbol,tf) 的磁盘 shapes 缓存（供 main.cpp 自动加载时使用）
     const QVector<QSharedPointer<Shape>> &shapesDiskCache(const QString &key) const {
         static QVector<QSharedPointer<Shape>> empty;
@@ -197,21 +186,12 @@ private:
     QHash<QString, QStringList> m_symbolScriptMap;
 
     // ── (symbol|tf) → true（回放模式）/ false（实时模式） ──
-    // 每个 (symbol,tf) 独立控制，加载历史数据时设为 true
-    // 收到第一条实时推送后自动变为 false，飞书才可发送
     QHash<QString, bool> m_replayMap;
 
     // 回放模式标志：默认 true（回放模式），收到第一条实时数据后自动变为 false
-    // 历史加载/模拟回放时抑制 alert/send_feishu
     bool m_isReplay = true;
     // 回放期间 K 线事件累计计数（用于 main.cpp 回放结束后打印汇总）
     int m_replayCount = 0;
-
-    // 飞书发送器（复用，通过 FeishuSender::SendMarkdown 异步发送）
-    std::shared_ptr<FeishuSender> m_feishuSender;
-
-    // IoContextManager：驱动 FeishuSender 的异步 io_context（共享给临时 FeishuSender）
-    std::shared_ptr<NetCore::IoContextManager> m_ioCtxMgr;
 
     int m_currentParentShapeId = 0; // 当前脚本执行上下文中的父 shape id
     int m_currentCandleIndex = -1;  // 回放期间当前处理的 K 线索引（-1 表示非回放模式）
@@ -224,7 +204,6 @@ private:
     KLineWidget *m_klineWidget = nullptr;
 
     void registerCoreAPI();
-    void initFeishuSender();
     struct lua_State *L() const;
 
     // 辅助: 解析 shapes JSON 文件中的 candleIdx（用时间戳重新定位索引）
